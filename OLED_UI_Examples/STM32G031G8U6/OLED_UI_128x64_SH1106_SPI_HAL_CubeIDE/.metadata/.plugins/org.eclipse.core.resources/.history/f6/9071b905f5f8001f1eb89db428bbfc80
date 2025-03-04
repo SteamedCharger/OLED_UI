@@ -1,0 +1,32 @@
+/*
+ * scale.h
+ *
+ *  Created on: Nov 28, 2024
+ *      Author: tonny
+ */
+
+#ifndef SCALE_H_
+#define SCALE_H_
+
+void ScaleTask();
+void scale_timer_callback(void *argv, unsigned short int argc);
+void scale_get_zero_value();
+void scale_calibrate(uint32_t cali_weight);
+
+void scale_init();
+
+typedef struct
+{
+	// 是否经过校准
+	uint32_t is_calibrated;
+	// 电子秤校准数据
+	int32_t zero_value;
+	double multiplier;
+
+	// 姿态传感器校准数据
+	//double x_offset;
+	//double y_offset;
+	//double z_offset;
+} sys_cali_data_t;
+
+#endif /* SCALE_H_ */

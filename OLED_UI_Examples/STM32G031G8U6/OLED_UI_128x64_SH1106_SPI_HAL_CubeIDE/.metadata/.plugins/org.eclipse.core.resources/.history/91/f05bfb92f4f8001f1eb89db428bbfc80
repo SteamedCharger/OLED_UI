@@ -1,0 +1,42 @@
+/*
+ * usermain.c
+ *
+ *  Created on: Nov 27, 2024
+ *      Author: tonny
+ */
+#include "usermain.h"
+#include "stm32g0xx_hal.h"
+
+
+// 定时器句柄
+extern TIM_HandleTypeDef htim16;
+
+// 看门狗句柄
+//extern WWDG_HandleTypeDef hwwdg;
+
+device_setting_t device_setting;
+
+void usermain()
+{
+	// init
+	//开启外围器件
+	// 注意：开启外围器件可能导致电压波动，不要在此操作之后立即读写Flash
+	HAL_GPIO_WritePin(PWRON_GPIO_Port, PWRON_Pin, 0);
+
+
+	HAL_Delay(100);
+
+
+	// 初始化UI
+	DisplayInit();
+
+	BTN_init();
+	// 初始化菜单
+	reset_menu();
+
+	for (;;)
+	{
+
+
+	}
+}

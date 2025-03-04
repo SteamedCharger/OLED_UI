@@ -1,0 +1,129 @@
+/*
+ * ADS1231.c
+ *
+ *  Created on: Nov 21, 2024
+ *      Author: tonny
+ */
+
+#include "ADS1231.h"
+#include "main.h"
+#include "stm32g0xx_hal.h"
+#include "scale.h"
+#include "usermain.h"
+/*
+#define ADS1231_DOUT_Pin GPIO_PIN_14
+#define ADS1231_DOUT_GPIO_Port GPIOC
+#define ADS1231_SCLK_Pin GPIO_PIN_15
+#define ADS1231_SCLK_GPIO_Port GPIOC
+*/
+
+//extern bit weight_update;
+//int32_t ADS1231_raw_data = 0;
+
+void ADS1231_Set_Power(uint8_t power)
+{
+	// "Power-down: holding this pin low powers down the entire converter and resets the ADC."
+	//GPIO_ADS1231_PDWN = power;
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, power);
+}
+extern int32_t volatile scaleDataNow;
+extern int32_t volatile raw_scale_data[ADS1231_DATA_RATE_SPS];
+extern sys_cali_data_t sys_cali_data;
+void ADS1231_Init()
+{
+	//复位
+	ADS1231_Set_Power(0);
+	HAL_Delay(10);
+	ADS1231_Set_Power(1);
+
+	//启动数据转换
+	//ADSK = 1;
+	HAL_GPIO_WritePin(ADS1231_SCLK_GPIO_Port, ADS1231_SCLK_Pin, 1);
+	//os_wait2(K_TMO, 200);
+//	osDelay(200);
+	HAL_Delay(10);
+	//ADSK = 0;
+	HAL_GPIO_WritePin(ADS1231_SCLK_GPIO_Port, ADS1231_SCLK_Pin, 0);
+
+	//ReadADS1231();
+	// 往数组里填充数据，完成初始化
+	while(HAL_GPIO_ReadPin(ADS1231_DOUT_GPIO_Port, ADS1231_DOUT_Pin));	 //AD转换未结束则等待，否则开始读取
+	scaleDataNow = ReadADS1231();
+	for (int i = 0; i < ADS1231_DATA_RATE_SPS; i++)
+	{
+		raw_scale_data[i] = scaleDataNow;
+	}
+	device_setting.sys_cali_data.zero_value = scaleDataNow;
+}
+
+int32_t ReadADS1231(void)
+{
+	int32_t Count=0;
+	//unsigned int t = 0;
+	//ADSK=0; //使能AD（PD_SCK 置低）
+	//HAL_GPIO_WritePin(ADS1231_SCLK_GPIO_Port, ADS1231_SCLK_Pin, 0);
+	//Count=0;
+
+	for (uint8_t i=0;i<24;i++)
+	{
+		//ADSK=1; //PD_SCK 置高（发送脉冲）
+		HAL_GPIO_WritePin(ADS1231_SCLK_GPIO_Port, ADS1231_SCLK_Pin, 1);
+		Count=Count<<1; //下降沿来时变量Count左移一位，右侧补零
+		//ADSK=0; //PD_SCK 置低
+		HAL_GPIO_WritePin(ADS1231_SCLK_GPIO_Port, ADS1231_SCLK_Pin, 0);
+		if(HAL_GPIO_ReadPin(ADS1231_DOUT_GPIO_Port, ADS1231_DOUT_Pin)) Count++;
+	}
+
+	//马上启动下一次读取
+	HAL_GPIO_WritePin(ADS1231_SCLK_GPIO_Port, ADS1231_SCLK_Pin, 1);
+	Count=Count^0x800000;//第25个脉冲下降沿来时，转换数据为移码(补码转为0x0-0xFFFFFF)
+	HAL_GPIO_WritePin(ADS1231_SCLK_GPIO_Port, ADS1231_SCLK_Pin, 0);
+	return(Count - 0x7FFFFF);//将数据转为源码
+	//return Count;
+}
+/*
+long ReadADS1231_Average(void)
+{
+	static long xdata count, max, min, temp;
+	static unsigned char idata i;
+	static long xdata output;
+	//count = 0;
+
+	if(i == 0)					//第一次执行
+	{
+		temp = ReadADS1231();
+		max = temp;
+		min = temp;
+		count = temp;
+		i++;
+	}
+	else if(i<6)				//第2-6次执行
+	{
+		temp = ReadADS1231();
+		if(max < temp) max = temp;
+		else if(min > temp) min = temp;
+		count += temp;
+		i++;
+	}
+	else								//第7次执行
+	{
+		i=0;
+		count -= min;
+		count -= max;
+
+		//count >>= 2;
+		output = count >> 2;
+		weight_update = 1;
+		UartSendStr("output=");
+	UartSendInt(output);
+
+	UartSendStr("\r\n");
+	}
+
+
+
+
+	return output;
+}*/
+
+

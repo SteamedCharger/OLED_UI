@@ -1,0 +1,6 @@
+../Drivers/OLED_UI/OLED_UI_Driver.c:19:6:Encoder_Init	0	static
+../Drivers/OLED_UI/OLED_UI_Driver.c:63:6:Encoder_Enable	0	static
+../Drivers/OLED_UI/OLED_UI_Driver.c:73:6:Encoder_Disable	0	static
+../Drivers/OLED_UI/OLED_UI_Driver.c:89:9:Encoder_Get	0	static
+../Drivers/OLED_UI/OLED_UI_Driver.c:138:6:Delay_ms	8	static
+../Drivers/OLED_UI/OLED_UI_Driver.c:149:6:Delay_s	8	static

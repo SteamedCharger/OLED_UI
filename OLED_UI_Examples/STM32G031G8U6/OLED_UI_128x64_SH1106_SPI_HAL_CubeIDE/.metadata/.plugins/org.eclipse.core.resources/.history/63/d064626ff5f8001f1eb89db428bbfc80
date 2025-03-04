@@ -1,0 +1,30 @@
+/*
+ * usermain.h
+ *
+ *  Created on: Nov 27, 2024
+ *      Author: tonny
+ */
+
+#ifndef USERMAIN_H_
+#define USERMAIN_H_
+
+#include "scale.h"
+
+#define CALI_PSWD 709394
+
+typedef struct{
+	sys_cali_data_t sys_cali_data;
+	int32_t scrn_brightness;		// 屏幕亮度，1-3
+	int32_t scrn_saver_time;		// 屏保时间，单位秒，0为关闭
+	int32_t scrn_sleep_time;		// 休眠时间，单位秒，0为关闭
+	int32_t history_record;			// 历史记录设置，0为关闭，1为开启
+
+	// 随便保存一串数据，用于检测当前系统是否已经初始化
+	int32_t magic;		//默认写入0x34232766
+}device_setting_t;
+
+extern device_setting_t device_setting;
+
+void usermain();
+
+#endif /* USERMAIN_H_ */

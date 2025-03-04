@@ -1,0 +1,136 @@
+!SESSION 2025-03-04 18:34:42.072 -----------------------------------------------
+eclipse.buildId=Version 1.18.0
+java.version=21.0.3
+java.vendor=Eclipse Adoptium
+BootLoader constants: OS=win32, ARCH=x86_64, WS=win32, NL=zh_CN
+Command-line arguments:  -os win32 -ws win32 -arch x86_64
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 4 4 2025-03-04 18:35:06.073
+!MESSAGE CubeMX plugin appears to be active, Log4j initialization might be too late.
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 1 1 2025-03-04 18:35:06.075
+!MESSAGE Log4j2 initialized with config file D:\Users\tonny\Downloads\OLED_UI_128x64_SSD1306_SPI_2月17日版\STM32G031G8U6\OLED_UI_128x64_SH1106_SPI_HAL_CubeIDE\.metadata\.log4j2.xml
+
+!ENTRY com.st.stm32cube.ide.mcu.ide 1 1 2025-03-04 18:35:10.064
+!MESSAGE Started RMI Server, listening on port 41337
+
+!ENTRY org.eclipse.cdt.core 1 0 2025-03-04 18:36:15.249
+!MESSAGE Indexed 'ScaleProLite2.0' (42 sources, 157 headers) in 4.68 sec: 17,317 declarations; 85,879 references; 25 unresolved inclusions; 2,159 syntax errors; 9,684 unresolved names (8.6%)
+
+!ENTRY org.eclipse.cdt.core 1 0 2025-03-04 18:36:42.409
+!MESSAGE Indexed 'OLED_UI_template' (41 sources, 138 headers) in 1.55 sec: 14,555 declarations; 84,343 references; 3 unresolved inclusions; 26 syntax errors; 171 unresolved names (0.17%)
+
+!ENTRY org.eclipse.cdt.core 1 0 2025-03-04 18:37:24.467
+!MESSAGE Indexed 'OLED_UI_Example' (41 sources, 138 headers) in 1.51 sec: 14,555 declarations; 84,343 references; 3 unresolved inclusions; 26 syntax errors; 171 unresolved names (0.17%)
+
+!ENTRY org.eclipse.cdt.core 1 0 2025-03-04 18:41:36.860
+!MESSAGE Indexed 'OLED_UI_Example' (47 sources, 146 headers) in 2.12 sec: 17,082 declarations; 90,708 references; 6 unresolved inclusions; 26 syntax errors; 330 unresolved names (0.31%)
+
+!ENTRY org.eclipse.cdt.core 1 0 2025-03-04 20:42:12.244
+!MESSAGE Indexed 'OLED_UI_Example' (39 sources, 136 headers) in 1.53 sec: 16,402 declarations; 87,790 references; 3 unresolved inclusions; 28 syntax errors; 254 unresolved names (0.24%)
+
+!ENTRY org.eclipse.cdt.dsf.gdb 4 5012 2025-03-04 21:33:35.478
+!MESSAGE Error in final launch sequence:
+
+Failed to execute MI command:
+symbol-file D:\\Users\\tonny\\Downloads\\OLED_UI_128x64_SSD1306_SPI_2月17日版\\STM32G031G8U6\\OLED_UI_128x64_SH1106_SPI_HAL_CubeIDE\\OLED_UI_Example\\Debug\\OLED_UI_Example.elf
+
+Error message from debugger back end:
+Can't read symbols from D:\Users\tonny\Downloads\OLED_UI_128x64_SSD1306_SPI_2æ\234?7æ\227¥ç\211\210\STM32G031G8U6\OLED_UI_128x64_SH1106_SPI_HAL_CubeIDE\OLED_UI_Example\Debug\OLED_UI_Example.elf: No such file or directory
+!STACK 1
+org.eclipse.core.runtime.CoreException: Failed to execute MI command:
+symbol-file D:\\Users\\tonny\\Downloads\\OLED_UI_128x64_SSD1306_SPI_2月17日版\\STM32G031G8U6\\OLED_UI_128x64_SH1106_SPI_HAL_CubeIDE\\OLED_UI_Example\\Debug\\OLED_UI_Example.elf
+
+Error message from debugger back end:
+Can't read symbols from D:\Users\tonny\Downloads\OLED_UI_128x64_SSD1306_SPI_2æ\234?7æ\227¥ç\211\210\STM32G031G8U6\OLED_UI_128x64_SH1106_SPI_HAL_CubeIDE\OLED_UI_Example\Debug\OLED_UI_Example.elf: No such file or directory
+	at org.eclipse.cdt.dsf.concurrent.Query.get(Query.java:112)
+	at org.eclipse.cdt.dsf.gdb.launching.GdbLaunchDelegate.launchDebugSession(GdbLaunchDelegate.java:252)
+	at org.eclipse.cdt.dsf.gdb.launching.GdbLaunchDelegate.launchDebugger(GdbLaunchDelegate.java:109)
+	at org.eclipse.cdt.dsf.gdb.launching.GdbLaunchDelegate.launch(GdbLaunchDelegate.java:97)
+	at com.st.stm32cube.ide.mcu.debug.launch.DSFDelegate.launch(DSFDelegate.java:334)
+	at org.eclipse.debug.internal.core.LaunchConfiguration.launch(LaunchConfiguration.java:805)
+	at org.eclipse.debug.internal.core.LaunchConfiguration.launch(LaunchConfiguration.java:716)
+	at org.eclipse.debug.internal.ui.DebugUIPlugin.buildAndLaunch(DebugUIPlugin.java:1054)
+	at org.eclipse.debug.internal.ui.DebugUIPlugin$1.run(DebugUIPlugin.java:1257)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:63)
+Caused by: java.lang.Exception: Can't read symbols from D:\Users\tonny\Downloads\OLED_UI_128x64_SSD1306_SPI_2æ\234?7æ\227¥ç\211\210\STM32G031G8U6\OLED_UI_128x64_SH1106_SPI_HAL_CubeIDE\OLED_UI_Example\Debug\OLED_UI_Example.elf: No such file or directory
+	at org.eclipse.cdt.dsf.mi.service.command.AbstractMIControl$RxThread.processMIOutput(AbstractMIControl.java:1024)
+	at org.eclipse.cdt.dsf.mi.service.command.AbstractMIControl$RxThread.run(AbstractMIControl.java:853)
+!SUBENTRY 1 org.eclipse.cdt.dsf.gdb 4 10004 2025-03-04 21:33:35.479
+!MESSAGE Failed to execute MI command:
+symbol-file D:\\Users\\tonny\\Downloads\\OLED_UI_128x64_SSD1306_SPI_2月17日版\\STM32G031G8U6\\OLED_UI_128x64_SH1106_SPI_HAL_CubeIDE\\OLED_UI_Example\\Debug\\OLED_UI_Example.elf
+
+Error message from debugger back end:
+Can't read symbols from D:\Users\tonny\Downloads\OLED_UI_128x64_SSD1306_SPI_2æ\234?7æ\227¥ç\211\210\STM32G031G8U6\OLED_UI_128x64_SH1106_SPI_HAL_CubeIDE\OLED_UI_Example\Debug\OLED_UI_Example.elf: No such file or directory
+!STACK 0
+java.lang.Exception: Can't read symbols from D:\Users\tonny\Downloads\OLED_UI_128x64_SSD1306_SPI_2æ\234?7æ\227¥ç\211\210\STM32G031G8U6\OLED_UI_128x64_SH1106_SPI_HAL_CubeIDE\OLED_UI_Example\Debug\OLED_UI_Example.elf: No such file or directory
+	at org.eclipse.cdt.dsf.mi.service.command.AbstractMIControl$RxThread.processMIOutput(AbstractMIControl.java:1024)
+	at org.eclipse.cdt.dsf.mi.service.command.AbstractMIControl$RxThread.run(AbstractMIControl.java:853)
+
+!ENTRY org.eclipse.cdt.dsf.gdb 4 5012 2025-03-04 21:33:47.340
+!MESSAGE Error in final launch sequence:
+
+Failed to execute MI command:
+symbol-file D:\\Users\\tonny\\Downloads\\OLED_UI_128x64_SSD1306_SPI_2月17日版\\STM32G031G8U6\\OLED_UI_128x64_SH1106_SPI_HAL_CubeIDE\\OLED_UI_Example\\Debug\\OLED_UI_Example.elf
+
+Error message from debugger back end:
+Can't read symbols from D:\Users\tonny\Downloads\OLED_UI_128x64_SSD1306_SPI_2æ\234?7æ\227¥ç\211\210\STM32G031G8U6\OLED_UI_128x64_SH1106_SPI_HAL_CubeIDE\OLED_UI_Example\Debug\OLED_UI_Example.elf: No such file or directory
+!STACK 1
+org.eclipse.core.runtime.CoreException: Failed to execute MI command:
+symbol-file D:\\Users\\tonny\\Downloads\\OLED_UI_128x64_SSD1306_SPI_2月17日版\\STM32G031G8U6\\OLED_UI_128x64_SH1106_SPI_HAL_CubeIDE\\OLED_UI_Example\\Debug\\OLED_UI_Example.elf
+
+Error message from debugger back end:
+Can't read symbols from D:\Users\tonny\Downloads\OLED_UI_128x64_SSD1306_SPI_2æ\234?7æ\227¥ç\211\210\STM32G031G8U6\OLED_UI_128x64_SH1106_SPI_HAL_CubeIDE\OLED_UI_Example\Debug\OLED_UI_Example.elf: No such file or directory
+	at org.eclipse.cdt.dsf.concurrent.Query.get(Query.java:112)
+	at org.eclipse.cdt.dsf.gdb.launching.GdbLaunchDelegate.launchDebugSession(GdbLaunchDelegate.java:252)
+	at org.eclipse.cdt.dsf.gdb.launching.GdbLaunchDelegate.launchDebugger(GdbLaunchDelegate.java:109)
+	at org.eclipse.cdt.dsf.gdb.launching.GdbLaunchDelegate.launch(GdbLaunchDelegate.java:97)
+	at com.st.stm32cube.ide.mcu.debug.launch.DSFDelegate.launch(DSFDelegate.java:334)
+	at org.eclipse.debug.internal.core.LaunchConfiguration.launch(LaunchConfiguration.java:805)
+	at org.eclipse.debug.internal.core.LaunchConfiguration.launch(LaunchConfiguration.java:716)
+	at org.eclipse.debug.internal.ui.DebugUIPlugin.buildAndLaunch(DebugUIPlugin.java:1054)
+	at org.eclipse.debug.internal.ui.DebugUIPlugin$1.run(DebugUIPlugin.java:1257)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:63)
+Caused by: java.lang.Exception: Can't read symbols from D:\Users\tonny\Downloads\OLED_UI_128x64_SSD1306_SPI_2æ\234?7æ\227¥ç\211\210\STM32G031G8U6\OLED_UI_128x64_SH1106_SPI_HAL_CubeIDE\OLED_UI_Example\Debug\OLED_UI_Example.elf: No such file or directory
+	at org.eclipse.cdt.dsf.mi.service.command.AbstractMIControl$RxThread.processMIOutput(AbstractMIControl.java:1024)
+	at org.eclipse.cdt.dsf.mi.service.command.AbstractMIControl$RxThread.run(AbstractMIControl.java:853)
+!SUBENTRY 1 org.eclipse.cdt.dsf.gdb 4 10004 2025-03-04 21:33:47.340
+!MESSAGE Failed to execute MI command:
+symbol-file D:\\Users\\tonny\\Downloads\\OLED_UI_128x64_SSD1306_SPI_2月17日版\\STM32G031G8U6\\OLED_UI_128x64_SH1106_SPI_HAL_CubeIDE\\OLED_UI_Example\\Debug\\OLED_UI_Example.elf
+
+Error message from debugger back end:
+Can't read symbols from D:\Users\tonny\Downloads\OLED_UI_128x64_SSD1306_SPI_2æ\234?7æ\227¥ç\211\210\STM32G031G8U6\OLED_UI_128x64_SH1106_SPI_HAL_CubeIDE\OLED_UI_Example\Debug\OLED_UI_Example.elf: No such file or directory
+!STACK 0
+java.lang.Exception: Can't read symbols from D:\Users\tonny\Downloads\OLED_UI_128x64_SSD1306_SPI_2æ\234?7æ\227¥ç\211\210\STM32G031G8U6\OLED_UI_128x64_SH1106_SPI_HAL_CubeIDE\OLED_UI_Example\Debug\OLED_UI_Example.elf: No such file or directory
+	at org.eclipse.cdt.dsf.mi.service.command.AbstractMIControl$RxThread.processMIOutput(AbstractMIControl.java:1024)
+	at org.eclipse.cdt.dsf.mi.service.command.AbstractMIControl$RxThread.run(AbstractMIControl.java:853)
+!SESSION 2025-03-04 21:35:02.996 -----------------------------------------------
+eclipse.buildId=Version 1.18.0
+java.version=21.0.3
+java.vendor=Eclipse Adoptium
+BootLoader constants: OS=win32, ARCH=x86_64, WS=win32, NL=zh_CN
+Command-line arguments:  -os win32 -ws win32 -arch x86_64
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 4 4 2025-03-04 21:35:09.465
+!MESSAGE CubeMX plugin appears to be active, Log4j initialization might be too late.
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 1 1 2025-03-04 21:35:09.469
+!MESSAGE Log4j2 initialized with config file D:\Users\tonny\Downloads\OLED_UI_128x64_SSD1306_SPI\STM32G031G8U6\OLED_UI_128x64_SH1106_SPI_HAL_CubeIDE\.metadata\.log4j2.xml
+
+!ENTRY com.st.stm32cube.ide.mcu.ide 1 1 2025-03-04 21:35:15.785
+!MESSAGE Started RMI Server, listening on port 41337
+!SESSION 2025-03-04 22:04:21.101 -----------------------------------------------
+eclipse.buildId=Version 1.18.0
+java.version=21.0.3
+java.vendor=Eclipse Adoptium
+BootLoader constants: OS=win32, ARCH=x86_64, WS=win32, NL=zh_CN
+Command-line arguments:  -os win32 -ws win32 -arch x86_64
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 4 4 2025-03-04 22:04:42.012
+!MESSAGE CubeMX plugin appears to be active, Log4j initialization might be too late.
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 1 1 2025-03-04 22:04:42.015
+!MESSAGE Log4j2 initialized with config file D:\Users\tonny\Downloads\OLED_UI_128x64_SSD1306_SPI\STM32G031G8U6\OLED_UI_128x64_SH1106_SPI_HAL_CubeIDE\.metadata\.log4j2.xml
+
+!ENTRY com.st.stm32cube.ide.mcu.ide 1 1 2025-03-04 22:04:48.969
+!MESSAGE Started RMI Server, listening on port 41337

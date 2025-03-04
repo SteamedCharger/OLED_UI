@@ -1,0 +1,10 @@
+22:05:09 **** Incremental Build of configuration Debug for project OLED_UI_Example ****
+make -j22 all 
+arm-none-eabi-size  OLED_UI_Example.elf 
+   text	   data	    bss	    dec	    hex	filename
+  56964	   4328	   3800	  65092	   fe44	OLED_UI_Example.elf
+Finished building: default.size.stdout
+ 
+
+22:05:10 Build Finished. 0 errors, 0 warnings. (took 548ms)
+
