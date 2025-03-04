@@ -62,8 +62,8 @@ all: main-build
 main-build: OLED_UI_Example.elf secondary-outputs
 
 # Tool invocations
-OLED_UI_Example.elf OLED_UI_Example.map: $(OBJS) $(USER_OBJS) D:\Users\tonny\Downloads\OLED_UI_128x64_SSD1306_SPI\STM32G031G8U6\OLED_UI_128x64_SH1106_SPI_HAL_CubeIDE\OLED_UI_Example\STM32G031G8UX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "OLED_UI_Example.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m0plus -T"D:\Users\tonny\Downloads\OLED_UI_128x64_SSD1306_SPI\STM32G031G8U6\OLED_UI_128x64_SH1106_SPI_HAL_CubeIDE\OLED_UI_Example\STM32G031G8UX_FLASH.ld" --specs=nosys.specs -Wl,-Map="OLED_UI_Example.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+OLED_UI_Example.elf OLED_UI_Example.map: $(OBJS) $(USER_OBJS) D:\Users\tonny\Documents\GitHub\OLED_UI\OLED_UI_Examples\STM32G031G8U6\OLED_UI_128x64_SH1106_SPI_HAL_CubeIDE\OLED_UI_Example\STM32G031G8UX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "OLED_UI_Example.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m0plus -T"D:\Users\tonny\Documents\GitHub\OLED_UI\OLED_UI_Examples\STM32G031G8U6\OLED_UI_128x64_SH1106_SPI_HAL_CubeIDE\OLED_UI_Example\STM32G031G8UX_FLASH.ld" --specs=nosys.specs -Wl,-Map="OLED_UI_Example.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
