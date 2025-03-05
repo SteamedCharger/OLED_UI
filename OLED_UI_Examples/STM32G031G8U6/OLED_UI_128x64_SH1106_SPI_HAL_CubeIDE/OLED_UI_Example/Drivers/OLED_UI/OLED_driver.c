@@ -181,7 +181,7 @@ void OLED_DisplayTurn(uint8_t i)
 		OLED_Write_CMD(0xA0);
 	}
 	OLED_Write_CMD(0xAF);//µ„¡¡∆¡ƒª
-
+}
 
 //ø™∆ÙOLEDœ‘ æ
 void OLED_DisPlay_On(void)
