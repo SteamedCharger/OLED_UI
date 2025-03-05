@@ -164,7 +164,7 @@ void OLED_ColorTurn(uint8_t i)
 
 
 
-//开启OLED显示 
+//开启OLED显示
 void OLED_DisPlay_On(void)
 {
 	OLED_Write_CMD(0x8D);//电荷泵使能
@@ -172,7 +172,7 @@ void OLED_DisPlay_On(void)
 	OLED_Write_CMD(0xAF);//点亮屏幕
 }
 
-//关闭OLED显示 
+//关闭OLED显示
 void OLED_DisPlay_Off(void)
 {
 	OLED_Write_CMD(0x8D);//电荷泵使能
@@ -201,7 +201,7 @@ void OLED_SetCursor(uint8_t Page, uint8_t X)
 }
 
 
-//更新显存到OLED	
+//更新显存到OLED
 void OLED_Update(void)
 {
 	uint8_t j;
@@ -278,7 +278,7 @@ void OLED_Init(void)
 	OLED_Write_CMD(0xA8);//multiplex ratio
 	OLED_Write_CMD(0x3F);//duty = 1/64
 	OLED_Write_CMD(0xad);//set charge pump enable
-	OLED_Write_CMD(0x8b);// 0x8B 内供 VCC 
+	OLED_Write_CMD(0x8b);// 0x8B 内供 VCC
 	OLED_Write_CMD(0x32);//0X30---0X33 set VPP 电荷泵电压 		//影响亮度：越高越亮
 	OLED_Write_CMD(0xC8);//Com scan direction
 	OLED_Write_CMD(0xD3);//set display offset
@@ -340,7 +340,19 @@ void OLED_Init(void)
   * 返 回 值：无
   * 说    明：不要设置过大或者过小。
   */
- void OLED_Brightness(int16_t Brightness){
+void OLED_Brightness(int16_t Brightness){
+
+	//检测亮度设置是否变化，有变化时再发送指令
+	static int16_t Last_Brightness;
+	if (Brightness == Last_Brightness)
+	{
+	 return;
+	}
+	else
+	{
+	 Last_Brightness = Brightness;
+	}
+
 	if(Brightness>255){
 		Brightness=255;
 	}
