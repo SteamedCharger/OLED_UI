@@ -160,8 +160,27 @@ void OLED_ColorTurn(uint8_t i)
 		}
 }
 
-
-
+/**
+  * 函    数：控制屏幕显示方向
+  * 参    数：Page 0=正常显示，1=屏幕内容反转180度
+  * 返 回 值：无
+  * 说    明：无
+  */
+void OLED_DisplayTurn(uint8_t i)
+{
+	//如果不关闭屏幕，执行时画面会闪烁两次，先上下镜像再左右镜像
+	OLED_Write_CMD(0xAE);//关闭屏幕
+	if (i == 0)
+	{
+		OLED_Write_CMD(0xC8); // 正常显示
+		OLED_Write_CMD(0xA1);
+	}
+	if (i == 1)
+	{
+		OLED_Write_CMD(0xC0); // 反转显示
+		OLED_Write_CMD(0xA0);
+	}
+	OLED_Write_CMD(0xAF);//点亮屏幕
 
 
 //开启OLED显示
@@ -346,11 +365,11 @@ void OLED_Brightness(int16_t Brightness){
 	static int16_t Last_Brightness;
 	if (Brightness == Last_Brightness)
 	{
-	 return;
+		return;
 	}
 	else
 	{
-	 Last_Brightness = Brightness;
+		Last_Brightness = Brightness;
 	}
 
 	if(Brightness>255){
