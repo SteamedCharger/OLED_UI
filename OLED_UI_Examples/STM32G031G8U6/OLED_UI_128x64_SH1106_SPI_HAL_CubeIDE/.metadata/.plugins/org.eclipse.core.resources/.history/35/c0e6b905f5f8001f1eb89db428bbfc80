@@ -1,0 +1,107 @@
+/*
+ * ui.h
+ *
+ *  Created on: Nov 27, 2024
+ *      Author: tonny
+ */
+
+#ifndef UI_H_
+#define UI_H_
+
+#include "main.h"
+
+
+
+void DisplayInit();
+void DisplayTask();
+
+/**
+ * @brief 缓入缓出计算
+ *
+ * @param start 开始值
+ * @param end 结束值
+ * @param t 时间
+ * @param n 决定曲线陡峭程度，通常取n=2或n=3。
+ * @return double
+ */
+double easeInOut(double start, double end, double t, double n);
+
+
+/*
+typedef struct scrollbar_t
+{
+	uint8_t total;		// 内容数量
+	uint8_t currentPos; // 当前位置
+	uint8_t setPos;		// 设置位置
+	// uint16_t x;		 // 左上角x坐标
+	// uint16_t y;		 // 左上角y坐标
+	// uint16_t height; // 高度
+	// uint16_t width;	 // 宽度
+	uint8_t color;				// 颜色
+	uint8_t fill;				// 填充
+	int16_t sliderY;			// 滑块绘制位置
+	int16_t sliderMoveTime;		// 滑块移动时间
+	int16_t sliderMoveStartPos; // 滑块移动起点
+	int16_t sliderMoveTarget;	// 滑块目标位置
+	int16_t sliderMoveComplete; // 滑块移动完成
+} scrollbar_t;*/
+
+// 菜单项
+
+/**
+ * @brief 绘制滚动条
+ *
+ * @param x 左上角x坐标
+ * @param y 左上角y坐标
+ * @param height 高度
+ * @param width 宽度
+ * @param total 内容总长度
+ * @param current 当前位置
+ */
+//void OLED_DrawScrollBar(scrollbar_t *scrollbar);
+
+
+
+// 菜单结构体
+typedef struct Menu_t
+{
+	unsigned char **menuNames;	// 菜单项目名称
+	char *textCount;		// 菜单项文字长度
+	uint8_t total;		 // 项目总数
+
+
+	uint8_t currentPos;	 // 当前位置
+	int8_t movePos;	 // 设置位置:+1往下，-1往上
+	uint8_t oriantation; // 朝向
+
+	int16_t moveTime; // 移动时间（滑块和菜单项一起移动）
+
+	int16_t sliderY;			// 滑块绘制位置
+	int16_t sliderMoveStartPos; // 滑块移动起点
+	int16_t sliderMoveTarget;	// 滑块目标位置
+
+	int16_t itemsY;			   // 菜单项绘制位置
+	int16_t itemPos;		   // 菜单位置
+	int16_t itemsMoveStartPos; // 菜单项移动起点		0-1
+	int16_t itemsMoveTarget;   // 菜单项目标位置
+
+	int16_t selectedItemPos;		  // 选中位置				0-4
+	int16_t selectedItemY;			  // 选中项绘制位置
+	int16_t selectedItemMoveStartPos; // 选中项移动起点
+	int16_t selectedItemMoveTarget;	  // 选中项目标位置
+
+	int8_t moveComplete; // 移动完成
+} Menu_t;
+
+extern Menu_t mainmenu;
+extern Menu_t settingsmenu;
+extern uint8_t last_device_orientation;
+
+void OLED_DrawMenu(Menu_t *menu);
+
+void reset_menu();
+
+void scrn_init_delay_cb(void *argv, unsigned short int argc);
+
+
+#endif /* UI_H_ */

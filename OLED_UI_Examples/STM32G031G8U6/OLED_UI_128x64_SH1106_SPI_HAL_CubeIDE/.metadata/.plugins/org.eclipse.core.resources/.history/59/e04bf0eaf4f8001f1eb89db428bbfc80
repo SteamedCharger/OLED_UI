@@ -1,0 +1,63 @@
+#include <misc.h>
+#include "main.h"
+#include "stm32g0xx_hal.h"
+#include "stm32g0xx_hal_gpio.h"
+
+// extern osThreadId AccTaskHandle;
+
+extern struct BTN_stat_t BTN_stat;
+//uint8_t volatile AccNewDataFlag;
+
+extern uint8_t OLED_SND_page; // 1-8页
+
+void HAL_GPIO_EXTI_Rising_Callback(uint16_t GPIO_Pin)
+{
+	switch (GPIO_Pin)
+	{/*
+	case GPIO_PIN_15: // 姿态传感器数据更新
+		// osSignalSet(AccTaskHandle, 0x01);
+		AccNewDataFlag = 1; // 新数据标志
+		break;*/
+	case GPIO_PIN_7:			 // 按钮松开
+		BTN_stat.isPressing = 0; // 按钮状态：松开
+
+		// 松开瞬间如果不是长按状态，就是短按，所以短按事件置为1
+		if (!BTN_stat.isLongPressing)
+			BTN_stat.pressEvent = 1;
+		BTN_stat.isLongPressing = 0;
+		BTN_stat.pressEndTick = HAL_GetTick(); // 按下时间
+		break;
+	default:
+		break;
+	}
+}
+
+void HAL_GPIO_EXTI_Falling_Callback(uint16_t GPIO_Pin)
+{
+	switch (GPIO_Pin)
+	{
+	case GPIO_PIN_7: // 按钮按下
+
+		BTN_stat.isPressing = 1;				 // 按钮状态：按下
+		BTN_stat.pressStartTick = HAL_GetTick(); // 按下时间
+		break;
+	default:
+		break;
+	}
+}
+
+// 定时器16中断回调函数
+extern TIM_HandleTypeDef htim16;
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+	if (htim == &htim16)
+	{
+		//中断函数
+		if (TIM_GetITStatus(TIM4, TIM_IT_Update) == SET)
+		{
+			OLED_UI_InterruptHandler();
+
+			TIM_ClearITPendingBit(TIM4, TIM_IT_Update);
+		}
+	}
+}

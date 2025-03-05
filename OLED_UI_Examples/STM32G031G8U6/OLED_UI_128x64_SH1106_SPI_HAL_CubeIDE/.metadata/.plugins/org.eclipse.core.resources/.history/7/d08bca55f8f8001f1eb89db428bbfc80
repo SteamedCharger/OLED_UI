@@ -1,0 +1,53 @@
+/*
+ * misc.c
+ *
+ *    Created on: Nov 23, 2024
+ *            Author: tonny
+ */
+#include <misc.h>
+#include "main.h"
+#include "stm32g0xx_hal.h"
+#include "oled.h"
+#include "stm32g0xx_hal_pwr_ex.h"
+#include "stm32g0xx_hal_pwr.h"
+#include "usermain.h"
+
+
+struct BTN_stat_t BTN_stat;
+uint8_t prev_btn_stat;
+
+void BTN_init()
+{
+    BTN_stat.isPressing = 0;
+    BTN_stat.isLongPressing = 0;
+    BTN_stat.pressEvent = 0;
+    BTN_stat.longPressEvent = 0;
+    BTN_stat.pressStartTick = 0;
+    BTN_stat.pressEndTick = 0;
+}
+
+
+
+void BtnTask()
+{
+    //============================    按钮管理    ============================
+
+	//读取GPIO
+	BTN_stat.isPressing = HAL_GPIO_ReadPin(BTN_GPIO_Port, BTN_Pin);
+	if (BTN_stat.isPressing && !prev_btn_stat)	//按下瞬间
+	{
+		BTN_stat.pressStartTick = HAL_GetTick();
+	}
+
+	// 短按检测（抬起时BTN_stat.pressEvent置1）
+
+
+    // 长按检测
+    if (BTN_stat.isPressing && !BTN_stat.isLongPressing && HAL_GetTick() > BTN_stat.pressStartTick + BTN_LONG_PRESS_MS)
+    {
+        BTN_stat.isLongPressing = 1;
+        BTN_stat.longPressEvent = 1;
+    }
+
+	prev_btn_stat = BTN_stat.isPressing;
+}

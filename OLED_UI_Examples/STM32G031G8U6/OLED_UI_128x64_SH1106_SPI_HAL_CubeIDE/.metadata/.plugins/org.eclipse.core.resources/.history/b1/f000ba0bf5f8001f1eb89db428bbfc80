@@ -1,0 +1,74 @@
+/*
+ * soft_timer.h
+ *
+ *  Created on: Nov 27, 2024
+ *      Author: tonny
+ */
+
+#ifndef TIMER_SOFT_TIMER_H_
+#define TIMER_SOFT_TIMER_H_
+
+#define SOFT_TIMER_TIMEOUT(x)	(soft_timer_state_get(x) == SOFT_TIMER_TIMEOUT)
+
+#define SOFT_TIMER_NUM		8		/* 最大 255 */
+
+#define SOFT_TIMER_0_SCALE			0
+#define SOFT_TIMER_1_SCRN_INIT		1
+#define SOFT_TIMER_2_MISC_TASK		2
+#define SOFT_TIMER_3_UI_ENTER_SET	3
+#define SOFT_TIMER_4_FLASH_WRITE	4
+
+
+typedef enum SOFT_TIMER_STATE
+{
+    SOFT_TIMER_STOPPED = 0,  		/* 停止 */
+    SOFT_TIMER_RUNNING = 1, 	 	/* 运行 */
+    SOFT_TIMER_TIMEOUT = 2   		/* 超时 */
+} SOFT_TIMER_STATE;					/* 软件定时器状态 */
+
+typedef enum SOFT_TIMER_MODE
+{
+    SOFT_TIMER_MODE_ONE_SHOT = 0,   /* 单次模式 */
+    SOFT_TIMER_MODE_PERIODIC = 1,	/* 周期模式 */
+} SOFT_TIMER_MODE;					/* 运行模式 */
+
+typedef void (*soft_timer_callback)(void *argv, unsigned short int argc);
+
+
+void soft_timer_init
+	(
+	void
+	);
+
+void soft_timer_start
+	(
+	unsigned char 		id,
+	unsigned char		mode,
+	unsigned int		delay,
+	soft_timer_callback	callback,
+	void 				*argv,
+	unsigned short int	argc
+	);
+
+void soft_timer_stop
+	(
+	unsigned char id
+	);
+
+void soft_timer_update
+	(
+	void
+	);
+
+unsigned char soft_timer_state_get
+	(
+	unsigned char id
+	);
+
+void soft_timer_nop_callback
+	(
+	void 				*argv,
+	unsigned short int 	argc
+	);
+
+#endif /* TIMER_SOFT_TIMER_H_ */

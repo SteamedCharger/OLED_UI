@@ -1,0 +1,40 @@
+/*
+ * flash.h
+ *
+ *  Created on: Mar 2, 2025
+ *      Author: tonny
+ */
+
+#ifndef FLASH_FLASH_H_
+#define FLASH_FLASH_H_
+
+#include "main.h"
+
+#define FLASH_PAGE_BASE 0x08000000
+
+// 单片机型号：STM32G031G8U6，Flash大小：64KB
+//#define FLASH_SIZE 0x10000 // 64KB
+//#define FLASH_PAGE_SIZE 0x800 // 2KB
+#define FLASH_PAGE_NUM 32   // 32页，64KB
+
+// 只使用最后一页
+#define FLASH_LAST_PAGE (FLASH_PAGE_BASE + FLASH_PAGE_SIZE * (FLASH_PAGE_NUM - 1))
+
+extern int8_t settings_update;
+
+void Flash_Init();
+
+//void Flash_Write(uint32_t address, uint32_t data);
+
+//uint32_t Flash_Read(uint32_t address);
+
+uint32_t Flash_Erase(uint32_t page_address);
+
+//批量读取flash数据到结构体
+void Flash_Read_Struct(void *data, uint32_t size);
+
+//批量写入结构体数据到flash
+void Flash_Write_Struct(void *data, uint32_t size);
+
+
+#endif /* FLASH_FLASH_H_ */

@@ -1,0 +1,157 @@
+/*
+ * flash.c
+ *
+ *  Created on: Mar 2, 2025
+ *      Author: tonny
+ */
+#include "flash.h"
+#include "main.h"
+#include "usermain.h"
+#include "soft_timer.h"
+
+int8_t settings_update = 0;
+
+void Flash_Init()
+{
+	soft_timer_start(SOFT_TIMER_4_FLASH_WRITE, SOFT_TIMER_MODE_PERIODIC, 10000, flash_timer_callback, NULL, 0); // 10s
+}
+
+void Flash_Write(uint32_t address, uint64_t data) {
+    //HAL_FLASH_Unlock();  // 解锁Flash
+    HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD, address, data);  // 写入数据
+    //HAL_FLASH_Lock();  // 锁定Flash
+}
+
+uint32_t Flash_Read(uint32_t address) {
+    return *(__IO uint32_t*)(address);  // 读取数据
+}
+
+/**
+ * @brief 擦除flash页
+ * 
+ * @param address 要擦除的页面编号（STM32G031G8U6：0-31）
+ * @return uint32_t （如果有错误）出错的地址
+ */
+uint32_t Flash_Erase(uint32_t address) {
+    FLASH_EraseInitTypeDef erase_init;
+    uint32_t page_error;
+    //HAL_StatusTypeDef err;
+
+
+    erase_init.TypeErase = FLASH_TYPEERASE_PAGES;
+    erase_init.Page = ((address - FLASH_BASE) / FLASH_PAGE_SIZE);
+    erase_init.NbPages = 1;
+    HAL_FLASH_Unlock();  // 解锁Flash
+    HAL_FLASHEx_Erase(&erase_init, &page_error);  // 擦除页
+    HAL_FLASH_Lock();  // 锁定Flash
+    return page_error;
+}
+
+/**
+ * @brief 从flash读出数据到结构体
+ * 
+ * @param *data 目标结构体指针
+ * @param size sizeof(data)
+ */
+void Flash_Read_Struct(void *data, uint32_t size) {
+    uint32_t address = FLASH_LAST_PAGE;
+    uint32_t i;
+    uint32_t *p = (uint32_t *)data;
+    for (i = 0; i < size / 4; i++) {
+        *p = Flash_Read(address);
+        address += 4;
+        p++;
+    }
+}
+
+/**
+ * @brief 批量写入结构体数据到flash
+ * 
+ * @param *data 要写入flash的数据（结构体指针）
+ * @param size sizeof(data)
+ */
+void Flash_Write_Struct(void *data, uint32_t size) {
+    uint32_t address = FLASH_LAST_PAGE;
+    uint32_t i;
+    uint64_t *p = (uint64_t *)data;
+    //uint32_t volatile page_error;
+
+    //TODO：以后可以在一个扇区内多次写入，写满再擦除，节约flash寿命
+    //TODO：搞一个定时任务，比如10秒检测一次数据是否变更，有变更再写入。异步写入还能避免卡顿
+    HAL_FLASH_Unlock();  // 解锁Flash
+    //Flash_Erase(FLASH_LAST_PAGE);
+    for (i = 0; i < size / 8; i++) {
+        Flash_Write(address, *p);
+        address += 8;
+        p++;
+    }
+    HAL_FLASH_Lock();  // 锁定Flash
+}
+
+/**
+ * @brief Flash 定时器自动保存回调函数.
+ * 
+ * @param argv 
+ * @param argc 
+ */
+void flash_timer_callback(void *argv, unsigned short int argc)
+{
+    if (settings_update == 1)
+    {
+        Flash_Erase(FLASH_LAST_PAGE);
+        Flash_Write_Struct(&device_setting, sizeof(device_setting_t));
+        settings_update = 0;
+    }
+}
+
+/**
+ * @brief  设置 Flash 读保护.
+ * @param  state true: 使能读保护, false: 关闭读保护.
+ * @retval 1:  设置成功.
+ * @retval 0: 设置失败.
+ */
+uint8_t SetFlashReadProtection(uint8_t state)
+{
+    FLASH_OBProgramInitTypeDef OptionsBytesStruct = { 0 };
+    HAL_StatusTypeDef err;
+    HAL_FLASHEx_OBGetConfig(&OptionsBytesStruct);
+    //printf("HAL_FLASHEx_OBGetConfig():OptionsBytesStruct.RDPLevel = %02X \r\n", OptionsBytesStruct.RDPLevel);
+
+    if (((state == 1) && (OptionsBytesStruct.RDPLevel == OB_RDP_LEVEL_0))
+            || ((state == 0) && (OptionsBytesStruct.RDPLevel == OB_RDP_LEVEL_1)))
+    {
+        OptionsBytesStruct.OptionType = OPTIONBYTE_RDP;
+        if (state == 1)
+        {
+            OptionsBytesStruct.RDPLevel = OB_RDP_LEVEL_1;
+        }
+        else
+        {
+            OptionsBytesStruct.RDPLevel = OB_RDP_LEVEL_0;
+        }
+
+        err = HAL_FLASH_Unlock();
+        err |= HAL_FLASH_OB_Unlock();
+        err |= HAL_FLASHEx_OBProgram(&OptionsBytesStruct);
+
+        if (err == HAL_OK)
+        {
+            HAL_FLASH_OB_Launch();
+            HAL_FLASH_OB_Lock();
+            HAL_FLASH_Lock();
+        }
+        else
+        {
+            //printf("flash lock false \r\n");
+            return 0;
+        }
+
+        //printf("HAL_FLASHEx_OBGetConfig():OptionsBytesStruct.RDPLevel = %02X \r\n", OptionsBytesStruct.RDPLevel);
+    }
+    else
+    {
+
+    }
+    //printf("flash lock true \r\n");
+    return 1;
+}

@@ -1,0 +1,351 @@
+/*
+ * misc.c
+ *
+ *    Created on: Nov 23, 2024
+ *            Author: tonny
+ */
+#include <misc.h>
+#include "main.h"
+#include "stm32g0xx_hal.h"
+#include "LIS2DH12.h"
+#include "oled.h"
+#include "stm32g0xx_hal_pwr_ex.h"
+#include "stm32g0xx_hal_pwr.h"
+#include "usermain.h"
+
+
+extern TIM_HandleTypeDef htim16;
+
+
+struct BTN_stat_t BTN_stat;
+
+// 任务包括：电池等
+void MiscTask(void *argv, unsigned short int argc)
+{
+    // init
+
+    double Vbat_tmp;
+
+    // loop
+
+    //============================    电池管理    ============================
+    // 读取TP4057状态
+    uint8_t chrg = !HAL_GPIO_ReadPin(CHRG_GPIO_Port, CHRG_Pin);
+    uint8_t full = !HAL_GPIO_ReadPin(STDBY_GPIO_Port, STDBY_Pin);
+
+    // 计算3.3V电源电压。不是很准。
+    // uint16_t VrefintRaw = ADC_data[3];
+    double Vdd = ((double)VREFINT_CAL_VREF / 1000.0) * (double)*VREFINT_CAL_ADDR / (double)ADC_data[2];
+    // Vdd_tmp = Vdd;
+    // Vusb = Vdd/4096.0*(double)ADC_data[0];//
+    Vusb = (double)ADC_data[0] / 819.0; // 假设电源电压是3.3V
+    // Vbat = Vdd/4096.0*(double)ADC_data[1];//
+    Vbat_tmp = (double)ADC_data[1] / 975.0; // 假设电源电压是3.3V
+    // 低于3.3V时必须基于基准测量
+    if (Vdd < 3.25)
+        Vbat = Vdd;
+    else
+        Vbat = Vbat_tmp;
+    Vbat = ADC_data[1] / 1000.0;
+    // 计算电量百分比，假设电量是线性的。0%电量设为3.3V。这样到达非线性区时已经是0V了。
+    if (Vbat < 3.3)
+        bat_percent = 0;
+    else
+        bat_percent = (uint8_t)(((Vbat - 3.3) / 0.9) * 100.0) + 0.5;
+
+    // 充电中
+    if (Vusb > 4.0)
+    {
+        if (chrg)
+            BAT_stat = BAT_CHARGING;
+        else if (full)
+            BAT_stat = BAT_FULL;
+        else
+            BAT_stat = BAT_ERROR;
+    }
+    // 放电中
+    else
+    {
+        if (Vbat < 3.4)
+            BAT_stat = BAT_EMPTY;
+        else
+            BAT_stat = BAT_DISCHARGING;
+    }
+}
+
+void BTN_init()
+{
+    BTN_stat.isPressing = 0;
+    BTN_stat.isLongPressing = 0;
+    BTN_stat.pressEvent = 0;
+    BTN_stat.longPressEvent = 0;
+    BTN_stat.pressStartTick = 0;
+    BTN_stat.pressEndTick = 0;
+}
+
+// 电子秤传感器当前值
+extern int32_t volatile scaleDataNow;
+//extern sys_cali_data_t sys_cali_data;
+// 摇杆的值
+double volatile stick_value;
+uint8_t device_orientation = 0;
+void BtnTask()
+{
+    //============================    按钮管理    ============================
+
+    // BTN：电容按键
+    // 长按检测
+    if (BTN_stat.isPressing && !BTN_stat.isLongPressing && HAL_GetTick() > BTN_stat.pressStartTick + BTN_LONG_PRESS_MS)
+    {
+        BTN_stat.isLongPressing = 1;
+        BTN_stat.longPressEvent = 1;
+    }
+
+    // STICK：“摇杆”
+
+    //
+    // weight就是校准后的重量值
+    stick_value = (scaleDataNow - device_setting.sys_cali_data.zero_value) * device_setting.sys_cali_data.multiplier;
+    // TODO:确认方向
+    if (device_orientation == 1)
+        stick_value = -stick_value;
+
+    if (stick_value > STICK_ACTIVE_VALUE)
+    {
+        // 上
+        if (!STK_UP_stat.isPressing)
+        {
+            // 事件
+            // STK_UP_stat.pressEvent = 1;
+            STK_UP_stat.isPressing = 1;
+            STK_DN_stat.isPressing = 0;
+
+            // 记录按下时的tick
+            STK_UP_stat.pressStartTick = HAL_GetTick();
+        }
+    }
+    else if (stick_value < -STICK_ACTIVE_VALUE)
+    {
+        // 下
+        if (!STK_DN_stat.isPressing)
+        {
+            // 事件
+            // STK_DN_stat.pressEvent = 1;
+            STK_DN_stat.isPressing = 1;
+            STK_UP_stat.isPressing = 0;
+
+            // 记录按下时的tick
+            STK_DN_stat.pressStartTick = HAL_GetTick();
+        }
+    }
+    else
+    {
+        // 松开
+        STK_UP_stat.isPressing = 0;
+        STK_DN_stat.isPressing = 0;
+
+        STK_UP_stat.isDebouncedPressing = 0;
+        STK_DN_stat.isDebouncedPressing = 0;
+
+        STK_UP_stat.isLongPressing = 0;
+        STK_DN_stat.isLongPressing = 0;
+    }
+
+    // 短按检测
+    if (STK_UP_stat.isPressing && !STK_UP_stat.isDebouncedPressing && HAL_GetTick() > STK_UP_stat.pressStartTick + BTN_DEBOUNCE_MS)
+    {
+        STK_UP_stat.isDebouncedPressing = 1;
+        STK_UP_stat.pressEvent = 1;
+    }
+    if (STK_DN_stat.isPressing && !STK_DN_stat.isDebouncedPressing && HAL_GetTick() > STK_DN_stat.pressStartTick + BTN_DEBOUNCE_MS)
+    {
+        STK_DN_stat.isDebouncedPressing = 1;
+        STK_DN_stat.pressEvent = 1;
+    }
+
+    // 长按检测
+    if (STK_UP_stat.isPressing && !STK_UP_stat.isLongPressing && HAL_GetTick() > STK_UP_stat.pressStartTick + BTN_LONG_PRESS_MS)
+    {
+        STK_UP_stat.isLongPressing = 1;
+        // STK_UP_stat.longPressEvent = 1;
+    }
+    if (STK_DN_stat.isPressing && !STK_DN_stat.isLongPressing && HAL_GetTick() > STK_DN_stat.pressStartTick + BTN_LONG_PRESS_MS)
+    {
+        STK_DN_stat.isLongPressing = 1;
+        // STK_DN_stat.longPressEvent = 1;
+    }
+}
+
+void user_ADC_init();
+void user_SPI_init();
+void user_I2C2_init();
+void user_GPIO_init();
+void user_DMA_init();
+void user_TIM16_init();
+void SystemClock_Config(void);
+
+extern uint8_t OLED_SND_page; // 1-8页
+extern uint8_t ok_to_write_gram_flag;
+extern uint8_t UI_writing;
+extern uint8_t spi_busy;
+/**
+ * @brief 进入休眠
+ * 开始休眠：
+ * 关闭ADS1231
+ * 关闭姿态仪
+ * 关闭OLED
+ * 关闭ADC（应该是自动的）
+ * 进入休眠模式
+ * 
+ * 结束休眠：
+ * 开启ADS1231
+ * 开启姿态仪
+ * 开启OLED
+ * 开启ADC（应该是自动的）
+ * ADC校准
+ *
+ * 唤醒方式：
+ * 按键唤醒（只有BTN中断可以唤醒）
+ *
+ */
+void goToSleep()
+{
+    //uint8_t GPIO_state[4];
+
+
+
+
+
+    //HAL_Delay(100);
+    //HAL_PWREx_EnableUltraLowPower(); // 超低功耗模式
+    //HAL_PWREx_EnableFastWakeUp();    // 快速唤醒
+    // 关闭ADC
+//    HAL_ADC_Stop_DMA(&hadc1);   // 停止ADC采样
+//    HAL_ADC_DeInit(&hadc1);     // 关闭ADC
+
+    // 关闭SPI：PA1 PA2置为模拟输入
+    //GPIO_InitTypeDef GPIO_InitStruct = {0};
+    //GPIO_InitStruct.Pin = GPIO_PIN_1 | GPIO_PIN_2;
+    //GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    //GPIO_InitStruct.Pull = GPIO_NOPULL;
+    //HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+	//显示屏写入状态复位
+	while (spi_busy);
+	UI_writing = 0;
+	ok_to_write_gram_flag = 0;
+
+	HAL_TIM_Base_DeInit(&htim16);
+
+	//驱动取消初始化
+	extern I2C_HandleTypeDef hi2c2;
+	extern SPI_HandleTypeDef hspi1;
+	//HAL_I2C_DeInit(&hi2c2);
+	HAL_SPI_DeInit(&hspi1);
+
+
+	//设置睡眠GPIO
+	//OLED
+	HAL_GPIO_WritePin(OLED_DC_GPIO_Port, OLED_DC_Pin, 0);
+	HAL_GPIO_WritePin(OLED_SCLK_GPIO_Port, OLED_SCLK_Pin, 1);
+	HAL_GPIO_WritePin(OLED_SDIN_GPIO_Port, OLED_SDIN_Pin, 1);
+	HAL_GPIO_WritePin(OLED_RES_GPIO_Port, OLED_RES_Pin, 0);
+	HAL_GPIO_WritePin(OLED_CS_GPIO_Port, OLED_CS_Pin, 0);
+
+	//ADS1231
+	HAL_GPIO_WritePin(ADS1231_DOUT_GPIO_Port, ADS1231_DOUT_Pin, 1);
+	HAL_GPIO_WritePin(ADS1231_SCLK_GPIO_Port, ADS1231_SCLK_Pin, 1);
+	HAL_GPIO_WritePin(ADS1231_PDWN__GPIO_Port, ADS1231_PDWN__Pin, 0);
+
+	//LIS2DH12
+	//HAL_GPIO_WritePin(LIS_RES_GPIO_Port, LIS_RES_Pin, 0);
+	//HAL_GPIO_WritePin(LIS_SDA_GPIO_Port, LIS_SDA_Pin, 0);
+	//HAL_GPIO_WritePin(LIS_SCL_GPIO_Port, LIS_SCL_Pin, 0);
+
+	//关闭外围硬件
+	//HAL_GPIO_WritePin(PWRON_GPIO_Port, PWRON_Pin, 1);
+	//TODO：暂时不关，等更新PCB加上缓启动后再关
+
+	//等待外围硬件电容放电，避免热启动
+	HAL_Delay(3000);
+
+    // 进入停机模式
+    HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);
+
+
+
+    // 结束休眠：
+    // 配置系统时钟
+    SystemClock_Config();
+
+    //user_GPIO_init();
+
+
+
+    //启动外围硬件
+    HAL_GPIO_WritePin(PWRON_GPIO_Port, PWRON_Pin, 0);
+    //HAL_Delay(100);	//等待外围硬件缓启动
+    //设置GPIO
+//	HAL_GPIO_WritePin(OLED_RES_GPIO_Port, OLED_RES_Pin, 0);
+//	HAL_GPIO_WritePin(OLED_DC_GPIO_Port, OLED_DC_Pin, 0);
+    //HAL_GPIO_WritePin(OLED_CS_GPIO_Port, OLED_CS_Pin, 1);
+	//HAL_GPIO_WritePin(OLED_SCLK_GPIO_Port, OLED_SCLK_Pin, 1);
+	//HAL_GPIO_WritePin(OLED_SDIN_GPIO_Port, OLED_SDIN_Pin, 1);
+
+    // 恢复GPIO状态
+    //HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_state[0]);
+    //HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2, GPIO_state[1]);
+    //HAL_GPIO_WritePin(GPIOA, GPIO_PIN_11, GPIO_state[2]);
+    //HAL_GPIO_WritePin(GPIOA, GPIO_PIN_12, GPIO_state[3]);
+
+    // 初始化显示屏
+    OLED_SND_page = 0;
+
+    //初始化DMA
+    user_DMA_init();
+    // 开启SPI
+    user_SPI_init();
+
+    user_TIM16_init();
+
+    //开启I2C
+    //user_I2C2_init();
+
+    // 开启ADS1231
+    HAL_GPIO_WritePin(ADS1231_PDWN__GPIO_Port, ADS1231_PDWN__Pin, 1);
+    // 开启姿态仪
+    //LIS2DH12_set_power(1);
+    //LIS2DH12_init();
+
+
+
+
+    OLED_Init();
+    HAL_TIM_Base_Start_IT(&htim16);
+    //旋转屏幕
+    OLED_DisplayTurn(device_orientation);
+    	// TODO: 确认方向
+    mainmenu.oriantation = device_orientation;
+    settingsmenu.oriantation = device_orientation;
+    last_device_orientation = device_orientation;
+
+    OLED_DisPlay_On();
+    	// 延时点亮屏幕，避免出现不好的效果
+    //soft_timer_start(SOFT_TIMER_1_SCRN_INIT, SOFT_TIMER_MODE_ONE_SHOT, 100, scrn_init_delay_cb, NULL, 0);
+    //OLED_SND_page = 0;
+
+
+
+
+    //HAL_StatusTypeDef HAL_TIM_Base_Start_IT(TIM_HandleTypeDef *htim);
+    //extern TIM_HandleTypeDef htim16;
+    //HAL_TIM_Base_Start_IT(&htim16);
+
+    // 开启ADC
+    //HAL_ADCEx_EnableVREFINT();  // 使能内部参考电压
+    //user_ADC_init();             // 初始化ADC
+    //HAL_ADCEx_Calibration_Start(&hadc1); // ADC采样校准
+    // 开始ADC连续采样。数据会自动放到ADC_data数组里
+    //HAL_ADC_Start_DMA(&hadc1, (uint32_t *)ADC_data, 3);
+
+}
