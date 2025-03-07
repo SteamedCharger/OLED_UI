@@ -292,8 +292,8 @@ void OLED_Init(void)
 	OLED_Write_CMD(0x10);//set higher column address
 	OLED_Write_CMD(0x40);//set display start line
 	OLED_Write_CMD(0xB0);//set page address
-	OLED_Write_CMD(0x81);//设置对比度（亮度）
-	OLED_Write_CMD(0xff);//0x00-0xFF							//影响亮度：越高越亮
+//	OLED_Write_CMD(0x81);//设置对比度（亮度）
+//	OLED_Write_CMD(0x00);//0x00-0xFF							//影响亮度：越高越亮
 	OLED_Write_CMD(0xA1);//set segment remap
 	OLED_Write_CMD(0xA6);//normal / reverse
 	OLED_Write_CMD(0xA8);//multiplex ratio
@@ -319,8 +319,8 @@ void OLED_Init(void)
 	OLED_Write_CMD(0x00);
 	OLED_Write_CMD(0x10);
 	OLED_Write_CMD(0x40);
-	OLED_Write_CMD(0x81);
-	OLED_Write_CMD(0xCF);
+//	OLED_Write_CMD(0x81);//设置对比度（亮度）
+//	OLED_Write_CMD(0xCF);
 	OLED_Write_CMD(0xA1);
 	OLED_Write_CMD(0xC8);
 	OLED_Write_CMD(0xA6);
@@ -345,6 +345,7 @@ void OLED_Init(void)
 	OLED_Write_CMD(0xAF);
 #endif
 
+	OLED_Brightness(-1);	//初始化亮度设置函数。设置为-1相当于设置为0
 	OLED_Clear();
 	OLED_Write_CMD(0xAF);//Display ON
 	for(int i=0;i<1000;i++)
