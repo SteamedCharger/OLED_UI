@@ -160,11 +160,30 @@ void OLED_ColorTurn(uint8_t i)
 		}
 }
 
+/**
+  * 函    数：控制屏幕显示方向
+  * 参    数：Page 0=正常显示，1=屏幕内容反转180度
+  * 返 回 值：无
+  * 说    明：无
+  */
+void OLED_DisplayTurn(uint8_t i)
+{
+	//如果不关闭屏幕，执行时画面会闪烁两次，先上下镜像再左右镜像
+	OLED_Write_CMD(0xAE);//关闭屏幕
+	if (i == 0)
+	{
+		OLED_Write_CMD(0xC8); // 正常显示
+		OLED_Write_CMD(0xA1);
+	}
+	if (i == 1)
+	{
+		OLED_Write_CMD(0xC0); // 反转显示
+		OLED_Write_CMD(0xA0);
+	}
+	OLED_Write_CMD(0xAF);//点亮屏幕
+}
 
-
-
-
-//开启OLED显示 
+//开启OLED显示
 void OLED_DisPlay_On(void)
 {
 	OLED_Write_CMD(0x8D);//电荷泵使能
@@ -172,7 +191,7 @@ void OLED_DisPlay_On(void)
 	OLED_Write_CMD(0xAF);//点亮屏幕
 }
 
-//关闭OLED显示 
+//关闭OLED显示
 void OLED_DisPlay_Off(void)
 {
 	OLED_Write_CMD(0x8D);//电荷泵使能
@@ -192,7 +211,9 @@ void OLED_SetCursor(uint8_t Page, uint8_t X)
 	/*因为1.3寸的OLED驱动芯片（SH1106）有132列*/
 	/*屏幕的起始列接在了第2列，而不是第0列*/
 	/*所以需要将X加2，才能正常显示*/
-//	X += 2;
+#ifdef SH1106
+	X += 2;
+#endif
 	
 	/*通过指令设置页地址和列地址*/
 	OLED_Write_CMD(0xB0 | Page);					//设置页位置
@@ -201,7 +222,7 @@ void OLED_SetCursor(uint8_t Page, uint8_t X)
 }
 
 
-//更新显存到OLED	
+//更新显存到OLED
 void OLED_Update(void)
 {
 	uint8_t j;
@@ -278,7 +299,7 @@ void OLED_Init(void)
 	OLED_Write_CMD(0xA8);//multiplex ratio
 	OLED_Write_CMD(0x3F);//duty = 1/64
 	OLED_Write_CMD(0xad);//set charge pump enable
-	OLED_Write_CMD(0x8b);// 0x8B 内供 VCC 
+	OLED_Write_CMD(0x8b);// 0x8B 内供 VCC
 	OLED_Write_CMD(0x32);//0X30---0X33 set VPP 电荷泵电压 		//影响亮度：越高越亮
 	OLED_Write_CMD(0xC8);//Com scan direction
 	OLED_Write_CMD(0xD3);//set display offset
@@ -340,7 +361,19 @@ void OLED_Init(void)
   * 返 回 值：无
   * 说    明：不要设置过大或者过小。
   */
- void OLED_Brightness(int16_t Brightness){
+void OLED_Brightness(int16_t Brightness){
+
+	//检测亮度设置是否变化，有变化时再发送指令
+	static int16_t Last_Brightness;
+	if (Brightness == Last_Brightness)
+	{
+		return;
+	}
+	else
+	{
+		Last_Brightness = Brightness;
+	}
+
 	if(Brightness>255){
 		Brightness=255;
 	}
