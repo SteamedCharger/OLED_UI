@@ -1274,7 +1274,6 @@ void BackEventMenuItem(void){
 		//置返回标置位
         SetFadeOutFlag(BACK_FLAGSTART);
     }
-	
 }
 /**
  * @brief 返回函数
@@ -1288,13 +1287,18 @@ void OLED_UI_Back(void){
 
 /**
  * @brief 进入并运行回调函数
- * @param void
+ * @param 无
  * @return 无
+ * @note 在OLED_UI的主循环函数中调用
  */
 void RunCurrentCallBackFunction(void){
 	//KeyEnterFlag == FLAGSTART这个条件表示enter被触发
 	if(KeyEnterFlag == FLAGSTART){
-		CurrentMenuPage->General_MenuItems[CurrentMenuPage->_ActiveMenuID].General_callback();	
+		//检查回调函数指针是否为空，如果不为空，则执行回调函数
+		if (CurrentMenuPage->General_MenuItems[CurrentMenuPage->_ActiveMenuID].General_callback != NULL){
+			//执行回调函数
+			CurrentMenuPage->General_MenuItems[CurrentMenuPage->_ActiveMenuID].General_callback();	
+		}
 		//在回调函数执行完毕之后，将KeyEnterFlag复位。
 		ResetEnterFlag();
 		Encoder_Enable();  // 使能编码器

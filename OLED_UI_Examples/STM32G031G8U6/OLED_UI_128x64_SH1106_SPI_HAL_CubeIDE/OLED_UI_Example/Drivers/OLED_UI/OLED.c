@@ -1561,16 +1561,31 @@ void OLED_DrawRoundedRectangle(int16_t X, int16_t Y, int16_t Width, int16_t Heig
     if (Radius > Width / 2 || Radius > Height / 2) {
         Radius = (Width < Height ? Width : Height) / 2;  // 限制圆角半径不超过宽高的一半
     }
+
     if (Radius <= 0) {
         OLED_DrawRectangle(X, Y, Width, Height, IsFilled);  // 如果半径为0,退化为普通矩形
         return;
     }
+    else if(Radius == 2) {	// 如果半径为2，圆角可以简化为两个点，优化性能
+    	OLED_DrawPoint(X + 1, Y);
+    	OLED_DrawPoint(X + Width - 2, Y);
+
+    	OLED_DrawPoint(X + 1, Y + Height - 1);
+    	OLED_DrawPoint(X + Width - 2, Y + Height - 1);
+
+    	OLED_DrawPoint(X, Y + 1);
+    	OLED_DrawPoint(X, Y + Height - 2);
+
+    	OLED_DrawPoint(X + Width - 1, Y + 1);
+    	OLED_DrawPoint(X + Width - 1, Y + Height - 2);
+    }
+    else {
 		// 绘制四个圆角
 		OLED_DrawArc(X + Radius, Y + Radius, Radius,180,  -90, IsFilled);
 		OLED_DrawArc(X + Width - Radius - 1, Y + Radius, Radius,-90,  0, IsFilled);
 		OLED_DrawArc(X + Radius, Y + Height - Radius - 1, Radius,90,  180, IsFilled);
 		OLED_DrawArc(X + Width - Radius - 1, Y + Height - Radius - 1, Radius,0,  90, IsFilled);
-
+    }
 
     // 填充或绘制矩形主体
     if (IsFilled) {
