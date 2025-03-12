@@ -1314,10 +1314,10 @@ void RunFadeOut(void){
 	static int16_t FadeOut_x0, FadeOut_y0, FadeOut_width, FadeOut_height;
 
 	/*如果当前的FadeOutFlag已经被置位，则说明正在运行渐隐效果。
-		当前在运行渐隐效果的前提条件有2个：
-		1.【在按下确认键的情况下】【如果当前选中菜单项没有回调函数，但是有子菜单】，此时 FadeOutFlag == ENTER_FLAGSTART
-		2.【在按下返回键的情况下】【如果当前菜单的父菜单不为空】，此时 FadeOutFlag == BACK_FLAGSTART
-		*/
+	当前在运行渐隐效果的前提条件有2个：
+	1.【在按下确认键的情况下】【如果当前选中菜单项没有回调函数，但是有子菜单】，此时 FadeOutFlag == ENTER_FLAGSTART
+	2.【在按下返回键的情况下】【如果当前菜单的父菜单不为空】，此时 FadeOutFlag == BACK_FLAGSTART
+	*/
 	if(FadeOutFlag != FLAGEND){
 		if (FadeOut_Seq != 0){	//如果当前不是步骤0
 			if ((FadeOut_Seq_StartTick + FADEOUT_TIME) < HAL_GetTick()){	//计时FADEOUT_TIME毫秒
@@ -1453,6 +1453,8 @@ void RunFadeOut(void){
 			SetCursorZero();
 			//将FadeOutFlag复位
 			ResetFadeOutFlag();
+			// 使能编码器
+			Encoder_Enable();
 		}
 		else{					//步骤1-5：渐隐中
 			OLED_UI_FadeOut_Masking(FadeOut_x0, FadeOut_y0, FadeOut_width, FadeOut_height, FadeOut_Seq);
