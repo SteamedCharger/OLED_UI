@@ -1,245 +1,250 @@
 #include "OLED_UI.h"
-#include "usermain.h"
 
-#ifdef OLED_UI
-/**
- * @brief 本项目开源地址：
- * @param "https://github.com/bdth-7777777/OLED_UI"
- */
-/*OLED_UI全局变量定义 */
-OLED_UI_Counter OLED_FPS = {0,0,0};									//用于存储帧率的结构体
-OLED_Key OLED_UI_Key = {1,1,1,1};   								//用于存储按键状态的结构体,默认没有按下，都为1
-OLED_Key OLED_UI_LastKey = {1,1,1,1};								//用于存储上一轮按键状态的结构体,默认没有按下，都为1
-MenuPage*  CurrentMenuPage = NULL;									//全局结构体指针，当前页面的指针
-MenuWindow *CurrentWindow = NULL;									//全局结构体指针，当前窗口的指针
-MutexFlag KeyEnterFlag = FLAGEND;										//全局enter按键的互斥锁，互斥锁为FLAGSTART时表示正在执行回调函数
-MutexFlag FadeOutFlag = FLAGEND;										//渐隐效果的互斥锁，互斥锁为FLAGSTART时表示正在执行渐隐效果
-bool ColorMode = DARKMODE;											//全局布尔型数据，存储当前显示模式，true为深色模式，false为浅色模式
-bool OLED_UI_ShowFps = false;										//全局布尔型数据，用于控制是否显示帧率
-int16_t OLED_UI_Brightness = 100;									//全局变量，存储当前屏幕亮度
-OLED_UI_WindowSustainCounter OLED_SustainCounter = {0,false};			//用于存储窗口持续时间的结构体
 
-/***********************************************************************************************/
-/***************************这些变量用于存储需要绑定动画的控件的参数*******************************/
+/*=======================================OLED-UI全局数据结构======================================*/
+/*=======================================OLED-UI全局数据结构======================================*/
+/*=======================================OLED-UI全局数据结构======================================*/
+
+
+// 全局变量，创建按键状态控制结构体.由于是上拉输入，所以要将当前与上次状态都初始化为0
+OLED_UI_KeyControl OLED_UI_Enter={._CurrentStatus = 1,._LastStatus = 1,.SetClickTime = OLED_UI_ENTER_CLICK_TIME_MS,.SetLongPressTime = OLED_UI_ENTER_LONG_PRESS_TIME_MS};
+OLED_UI_KeyControl OLED_UI_Back={._CurrentStatus = 1,._LastStatus = 1,.SetClickTime = OLED_UI_BACK_CLICK_TIME_MS,.SetLongPressTime = OLED_UI_BACK_LONG_PRESS_TIME_MS};
+OLED_UI_KeyControl OLED_UI_Up={._CurrentStatus = 1,._LastStatus = 1,.SetClickTime = OLED_UI_UP_CLICK_TIME_MS,.SetLongPressTime = OLED_UI_UP_LONG_PRESS_TIME_MS};
+OLED_UI_KeyControl OLED_UI_Down={._CurrentStatus = 1,._LastStatus = 1,.SetClickTime = OLED_UI_DOWN_CLICK_TIME_MS,.SetLongPressTime = OLED_UI_DOWN_LONG_PRESS_TIME_MS};
+OLED_UI_KeyControl OLED_UI_EncoderKey={._CurrentStatus = 1,._LastStatus = 1,.SetClickTime = OLED_UI_ENCODER_KEY_CLICK_TIME_MS,.SetLongPressTime = OLED_UI_ENCODER_KEY_LONG_PRESS_TIME_MS};
+
+// 全局变量，存储帧数
+OLED_UI_Counter OLED_UI_FPS = {.Counter = 0,.Time = 0,.Value = 0};
+
+OLED_UI_WindowSustainCounter OLED_UI_WindowStatus = {.SustainFlag = false};
+
+// 全局变量，存储菜单ID偏移量
+int16_t OLED_UI_DeltaMenuID = 0;
+
+// 全局变量，长按标志位
+OLED_UI_LongPress OLED_UI_UpDownLongPress = {.DeltaData = 0,.Counter = 0};
+
+
+
+// 全局结构体指针，指向当前菜单页面
+MenuPage *CurrentMenuPage = NULL;
+
+// 全局结构体指针，指向当前菜单窗口
+MenuWindow *CurrentWindow = NULL;
+
+/*=======================================OLED-UI全局数据结构======================================*/
+/*=======================================OLED-UI全局数据结构======================================*/
+/*=======================================OLED-UI全局数据结构======================================*/
+
+/*需要动画效果的结构体注册为OLED_UI_xxxAnimation全局结构体*/
 
 // OLED_UI_Cursor是用于存储光标的结构体，控制光标的移动
-OLED_ChangeArea OLED_UI_Cursor;
+OLED_UI_AreaAnimation OLED_UI_Cursor;
+
 // OLED_UI_MenuFrame是用于存储菜单边框的结构体，控制菜单边框与内部组件的移动
-OLED_ChangeArea OLED_UI_MenuFrame;
-// OLED_UI_Window是用于存储窗口的结构体，控制窗口与内部组件的移动
-OLED_ChangeArea OLED_UI_Window;
+OLED_UI_AreaAnimation OLED_UI_MenuFrame;
+
+// OLED_UI_Window是用于存储窗口的结构体，控制窗口的移动
+OLED_UI_AreaAnimation OLED_UI_Window;
+
 // OLED_UI_ScrollBarHeight是用于存储滚动条高度的结构体，控制滚动条高度的变化
-OLED_ChangeDistance OLED_UI_ScrollBarHeight;
-// OLED_UI_ProbWidth是用于存储进度条宽度的结构体，控制进度条宽度的变化
-OLED_ChangeDistance OLED_UI_ProbWidth;
+OLED_UI_DistanceAnimation OLED_UI_ScrollBarHeight;
+
+// OLED_UI_ScrollBarStartPoint是用于存储滚动条起始点的结构体，控制滚动条整体的移动
+OLED_UI_PointAnimation OLED_UI_ScrollBarStartPoint;
+
 // OLED_UI_PageStartPoint是用于存储页面起始点的结构体，控制页面整体的移动
-OLED_ChangePoint OLED_UI_PageStartPoint ;
+OLED_UI_PointAnimation OLED_UI_PageStartPoint;
+
+// OLED_UI_ProbWidth是用于存储进度条宽度的结构体，控制进度条宽度的变化
+OLED_UI_DistanceAnimation OLED_UI_ProbWidth;
+
 // OLED_UI_LineStep是用于存储行间距的结构体，控制行间距的变化
-OLED_ChangeDistance OLED_UI_LineStep;
+OLED_UI_DistanceAnimation OLED_UI_LineStep;
 
+// OLED_UI_Tiles_FontTopDistance是用于存储字体顶部距离的结构体，控制字体顶部距离的变化[此贴类专有]
+OLED_UI_DistanceAnimation OLED_UI_Tiles_FontTopDistance;
 
+/*=======================================OLED-UI工具函数======================================*/
+    /*===================================OLED-UI工具函数==================================*/
+        /*===============================OLED-UI工具函数==============================*/
 
 /**
- * @brief 获取当前屏幕刷新率，结果存储在全局变量OLED_FPS.value中
- * @param 无
- * @note 该函数需要放在20ms周期内调用，否则会导致计数错误
- * @return 无
+ * @brief 计算字符串的宽度（可以是中英文字符串）
+ * @param Font 字体高度
+ * @param format 格式化字符串
+ * @return 字符串的宽度
  */
-void GetFPS(void){
-	if(OLED_FPS.step<49){
-		OLED_FPS.step++;
-	}else{
-		OLED_FPS.step=0;
-		OLED_FPS.value = OLED_FPS.count;
-		OLED_FPS.count=0;
-	}
+int16_t OLED_UI_CalcStringWidth(int8_t Font, const char *format, ...) {
+    int16_t StringLength = 0;
+    char String[MAX_STRING_LENGTH]; // 固定大小缓冲区
+    uint8_t ASCIIFont = OLED_GetFontWidth(Font, OLED_ASCII);
+    uint8_t ChineseFont = OLED_GetFontWidth(Font, OLED_CHINESE);
+    
+    va_list args;
+    va_start(args, format);
+    #if USE_SIMPLE_VSPRINTF
+    OLED_Simple_vsprintf(String, format, args);
+    #else
+    vsprintf(String, format, args);
+    #endif
+    va_end(args);
+
+    char *ptr = String;
+    while (*ptr != '\0') {
+        if ((unsigned char)*ptr & 0x80) { // 处理中文字符
+            StringLength += ChineseFont;
+            ptr += OLED_CHN_CHAR_WIDTH;
+        } else {
+            StringLength += ASCIIFont;
+            ptr++;
+        }
+    }
+    return StringLength;
 }
 
-/**
- * @brief 显示当前屏幕刷新率
- * @param 无
- * @note 需将此函数放在主循环当中，每循环一次记为一次刷新。
- * @return 无
- */
-void OLED_UI_ShowFPS(void){
-    OLED_FPS.count ++;
-	if (OLED_UI_ShowFps){
-		OLED_Printf(110,0,OLED_6X8_HALF,"%3d",OLED_FPS.value);
-	}
-}
-/**
- * @brief 获取当前页面的字体宽度
- * @param style CHINESE【中文】或 ASCII【ASCII】
- * @return 当前页面的字体宽度
- */
-OLED_Font GetOLED_Font(OLED_Font fontsize,bool style){
-	//根据当前页面的字体大小设置字体
-	OLED_Font ChineseFont,ASCIIFont;
-	switch(fontsize){
-		case OLED_UI_FONT_8:
-			ChineseFont = OLED_8X8_FULL,ASCIIFont = OLED_6X8_HALF;break;
-		case OLED_UI_FONT_12:
-			ChineseFont = OLED_12X12_FULL,ASCIIFont = OLED_7X12_HALF;break;
-		case OLED_UI_FONT_16:
-			ChineseFont = OLED_16X16_FULL,ASCIIFont = OLED_8X16_HALF;break;
-		case OLED_UI_FONT_20:
-			ChineseFont = OLED_20X20_FULL,ASCIIFont = OLED_10X20_HALF;break;
-		default:
-			ChineseFont = OLED_12X12_FULL,ASCIIFont = OLED_7X12_HALF;break;
-	}
-	if(style == CHINESE){
-		return ChineseFont;
-	}else{
-		return ASCIIFont;
-	}
 
-}
-/**
- * @brief 反转显示光标
- * @param X 光标X坐标
- * @param Y 光标Y坐标
- * @param Width 光标宽度
- * @param Height 光标高度
- * @param Style 光标样式
- * @note 该函数用于反转显示光标，使其显示为反色
- * @return 无
- */
-void ReverseCoordinate(int16_t X, int16_t Y, int16_t Width, int16_t Height,uint8_t Style){
-	switch(Style){
-		
-		case REVERSE_RECTANGLE://矩形反色
-			OLED_ReverseArea(X, Y, Width, Height);
-			break;
-		case REVERSE_ROUNDRECTANGLE://圆角矩形反色
-			if(Width >= 3 && Height >= 3){
-				OLED_ReverseArea(X, Y, 1, 1);
-				OLED_ReverseArea(X+Width-1, Y, 1, 1);
-				OLED_ReverseArea(X, Y+Height-1, 1, 1);
-				OLED_ReverseArea(X+Width-1, Y+Height-1, 1, 1);
-			}
-			OLED_ReverseArea(X, Y, Width, Height);
-			break;
 
-		case HOLLOW_RECTANGLE://空心矩形
-			OLED_ReverseArea(X, Y, Width, Height);
-			OLED_ReverseArea(X+1, Y+1, Width-2, Height-2);
-			break;
-		case HOLLOW_ROUNDRECTANGLE://空心矩形
-			OLED_ReverseArea(X, Y, Width, Height);
-			OLED_ReverseArea(X+1, Y+1, Width-2, Height-2);
-			if(Width >= 3){
-				OLED_ReverseArea(X, Y, 1, 1);
-				OLED_ReverseArea(X+Width-1, Y, 1, 1);
-			}
-			if(Height >= 3){
-				OLED_ReverseArea(X, Y+Height-1, 1, 1);
-				OLED_ReverseArea(X+Width-1, Y+Height-1, 1, 1);
-			}
-			break;
-		case REVERSE_BLOCK://小方块
+/**
+ * @brief 渐隐清除屏幕
+ * @param x 起始横坐标
+ * @param y 起始纵坐标
+ * @param width 宽度
+ * @param height 高度
+ * @note 渐隐清除屏幕，应用渐隐效果，显示更新，延时，重复5次。
+ */
+void OLED_UI_ClearAreaWithFadeOut(int16_t x, int16_t y, int16_t width, int16_t height){
+    // 如果速度为0，则直接清除屏幕
+    if(CurrentMenuPage->General_MovingSpeed <= 0){
+		OLED_Clear();
+		return;
+	}
+    for(uint8_t i=1;i<=5;i++){
+		// 应用渐隐效果
 			
-			OLED_ReverseArea(X, Y + 1, GetOLED_Font(CurrentMenuPage->General_FontSize,ASCII), Height);
-			
-			break;
-		case NOT_SHOW:
-			break;
-		default:
-			OLED_ReverseArea(X, Y, Width, Height);
-		break;
+		OLED_FadeOut_Masking(x,y,width,height,i);
+		// 显示更新
+        OLED_Update();
+		OLED_DelayMs(OLED_UI_FADE_TIME_MS);
+    }
+    OLED_DelayMs(OLED_UI_FADE_TIME_MS);
+}
+
+
+
+/**
+ * @brief 获取当前屏幕刷新率，结果存储在全局变量OLED_UI_FPS.value中
+ * @param 无
+ * @note 请确保OLED_UI_Config.h中定义的OLED_UI_INTERRUPT_TIME与实际情况相符此外，此函数需要放在中断当中。
+ * @return 无
+ */
+void OLED_UI_CountFPS_Interrupt(void){
+	if(OLED_UI_FPS.Time< 1000/OLED_UI_INTERRUPT_TIME -1){
+		OLED_UI_FPS.Time++;
+	}else{
+		OLED_UI_FPS.Time=0;
+		OLED_UI_FPS.Value = OLED_UI_FPS.Counter;
+		OLED_UI_FPS.Counter=0;
 	}
 }
 
-/** 
- * @brief：在指定区域应用模式化渐隐效果(蒙版颗粒化)
- * @param x0 区域起始X坐标
- * @param y0 区域起始Y坐标
- * @param width 区域宽度
- * @param height 区域高度
- * @param fadeLevel 渐隐档位，1到5之间的值，表示不同的像素熄灭模式
- * @note 该函数用于在指定区域应用模式化渐隐效果，使得该区域的像素逐渐变暗，效果类似蒙版颗粒化。
-*/
-void OLED_UI_FadeOut_Masking(int16_t x0, int16_t y0, int16_t width, int16_t height, int8_t fadeLevel) {
-    // 检查并调整区域范围
-    if (x0 < 0) {
-        width += x0;
-        x0 = 0;
-    }
-    if (y0 < 0) {
-        height += y0;
-        y0 = 0;
-    }
-    if (x0 + width > OLED_WIDTH) {
-        width = OLED_WIDTH - x0;
-    }
-    if (y0 + height > OLED_HEIGHT) {
-        height = OLED_HEIGHT - y0;
-    }
-    if (width <= 0 || height <= 0) {
-        return;
+/**
+ * @brief 显示FPS
+ * @param 无
+ * @note 在屏幕右上角显示当前帧率。
+ */
+void OLED_UI_ShowFPS(void)
+{
+    int8_t StringLength = OLED_UI_CalcStringWidth(OLED_FONT_8, "FPS:%d", OLED_UI_FPS.Value);
+    OLED_Printf(OLED_WIDTH - StringLength, 0, OLED_FONT_8, "FPS:%d", OLED_UI_FPS.Value);
+
+}
+
+/**
+ * @brief 处理按键状态，使用传递指针的方式实现复用
+ * @param key 按键控制结构体指针
+ * @note 处理按键状态，包括单击、双击、长按、短按、长按释放等。
+ */
+void OLED_UI_KeyControlProcess(OLED_UI_KeyControl *key)
+{
+
+        //【确认】按键处理逻辑
+    if (key->_CurrentStatus != key->_LastStatus) {
+        if (key->_CurrentStatus == 1) { 
+            // 按键释放事件
+            /* 新增：长按后的释放处理 */
+            if (key->_ClickFrequency == 2) {
+                // 清除长按特殊标记并重置状态
+                key->_ClickFrequency = 0;
+                key->_ClickTime = 0;
+                key->_ClickTimerFlag = 0;
+                return; // 直接退出，不触发后续逻辑
+            }
+
+            if (key->Status != OLED_UI_KEY_LONG_PRESS) {
+                // 第一次释放：启动双击检测窗口
+                if (key->_ClickFrequency == 0) {
+                    key->_ClickFrequency = 1;  // 记录第一次点击
+                    key->_ClickTimerFlag = 1;  // 启动双击超时检测
+                    key->_ClickTime = 0;       // 重置计时器
+                } 
+                // 第二次释放：判定双击
+                else {
+                    if (key->_ClickTime <= key->SetClickTime/OLED_UI_INTERRUPT_TIME) { // 500ms内
+                        key->Status = OLED_UI_KEY_DOUBLE_CLICK;
+                    }
+                    // 无论是否双击，处理完成后重置变量
+                    key->_ClickFrequency = 0;
+                    key->_ClickTime = 0;
+                    key->_ClickTimerFlag = 0;
+                }
+            }
+        } else { 
+            // 按键按下事件
+            // 初始化长按检测（但不重置点击次数）
+            key->_ClickTimerFlag = 1;  // 启动长按计时
+            key->_ClickTime = 0;       // 重置计时器
+            key->Status = OLED_UI_KEY_NONE; // 清除旧状态
+        }
     }
 
-    // 确保渐隐档位在有效范围内
-    if (fadeLevel < 1 || fadeLevel > 5) {
-        return;
-    }
+    if (key->_ClickTimerFlag) {
+        // 先解引用再累加
+        (key->_ClickTime) ++;
 
-    // 定义2x2网格的渐隐模式
-    // 每个数组表示一个2x2网格中哪些像素需要熄灭
-    // 0表示保持亮，1表示熄灭
-    const uint8_t patterns[5][2][2] = {
-        {{0, 0},  // Level 1: 全亮
-         {0, 0}},
-        
-        {{1, 0},  // Level 2: 左上角熄灭
-         {0, 0}},
-        
-        {{1, 0},  // Level 3: 左上角和右下角熄灭
-         {0, 1}},
-        
-        {{1, 0},  // Level 4: 只保留右上角
-         {1, 1}},
-        
-        {{1, 1},  // Level 5: 全暗
-         {1, 1}}
-    };
-
-    // 计算边界
-    int16_t xEnd = x0 + width;
-    int16_t yEnd = y0 + height;
-
-    // 应用渐隐效果
-    for (int16_t y = y0; y < yEnd; y++) {
-        int page = y / 8;
-        int bit_pos = y % 8;
-        uint8_t pixel_mask = 1 << bit_pos;
-        
-        for (int16_t x = x0; x < xEnd; x++) {
-            // 计算在2x2网格中的相对位置
-            int grid_x = (x - x0) % 2;
-            int grid_y = (y - y0) % 2;
-            
-            // 根据渐隐级别和网格位置决定是否熄灭像素
-            if (patterns[fadeLevel - 1][grid_y][grid_x]) {
-                OLED_DisplayBuf[page][x] &= ~pixel_mask;
+        // 长按检测（仅在按键仍处于按下状态时生效）
+        if (key->_CurrentStatus == 0) { 
+            // 长按阈值（假设50*20ms=1000ms）
+            if (key->_ClickTime  >= key->SetLongPressTime/OLED_UI_INTERRUPT_TIME) {
+                key->Status = OLED_UI_KEY_LONG_PRESS;
+                // 触发长按后强制重置所有状态，并标记长按特殊状态
+                key->_ClickFrequency = 2;  // 新增长按标记
+                key->_ClickTime  = 0;
+                key->_ClickTimerFlag = 0;
+            }
+        }
+        // 双击超时检测（仅在按键已释放时生效）
+        else { 
+            // 超时阈值（25*20ms=500ms）
+            if (key->_ClickTime  > key->SetClickTime/OLED_UI_INTERRUPT_TIME) {
+                // 未触发长按时标记单击
+                if (key->Status != OLED_UI_KEY_LONG_PRESS) {
+                    key->Status = OLED_UI_KEY_CLICK;
+                }
+                // 重置状态
+                key->_ClickFrequency = 0;
+                key->_ClickTime  = 0;
+                key->_ClickTimerFlag = 0;
             }
         }
     }
+
+    // 限制长按时间（防止溢出）
+    if(key->_ClickTime >= key->SetLongPressTime/OLED_UI_INTERRUPT_TIME + 1){
+        key->_ClickTime = key->SetLongPressTime/OLED_UI_INTERRUPT_TIME + 1;
+    }
+
 }
-
-
-/**
- * @brief 获取菜单项结构体数组的最后一个元素的ID
- * @param items 结构体数组MenuItem的指针
- * @return 菜单项结构体数组的元素数量
- */
-MenuID GetMenuItemNum(MenuItem * items){
-	MenuID num = 0;
-	while(items[num].General_item_text != NULL){
-		num+=1;
-	}
-	return num;
-}
-
 
 /**
  * @brief 根据当前所选的动画方式，改变浮点数参数
@@ -249,29 +254,28 @@ MenuID GetMenuItemNum(MenuItem * items){
  * @param CurrentStepNum 当前步数指针
  * @return 无
  */
-void ChangeFloatNum(float *CurrentNum, float *TargetNum, float *ErrorNum, float *LastErrorNum, float * IntegralNum, float *DerivativeNum)  {
+void OLED_UI_ChangeFloat(float *CurrentNum, float *TargetNum, float *ErrorNum, float *LastErrorNum, float * IntegralNum, float *DerivativeNum)  {
 	if(CurrentMenuPage->General_MoveStyle ==  UNLINEAR){
 		if(*CurrentNum == *TargetNum){
 			return;
 		}
 		//如果用户将速度设置为0，那么当前值直接等于目标值
 		if(CurrentMenuPage->General_MovingSpeed <= 0){
-
 			*ErrorNum = 0;
-			*LastErrorNum = 0;
+			
 		    *CurrentNum = *TargetNum;
 			return;
 		}
-		*LastErrorNum = *ErrorNum;
+		
 		//计算本轮误差值
 		*ErrorNum = *TargetNum - *CurrentNum; 
 		//计算当前值
 		*CurrentNum += 0.02*CurrentMenuPage->General_MovingSpeed * (*ErrorNum);
 		//当目标值与当前值差距小于速度值的1/20时，认为已经到达目标值
-		if(fabs(*CurrentNum - *TargetNum) < CurrentMenuPage->General_MovingSpeed/20.0f){
+		if(fabs(*CurrentNum - *TargetNum) < fmaxf(CurrentMenuPage->General_MovingSpeed / 20.0f, 0.5f)) {
 
 			*ErrorNum = 0;
-			*LastErrorNum = 0;
+			
 		    *CurrentNum = *TargetNum;
 			return;
 		}
@@ -281,7 +285,6 @@ void ChangeFloatNum(float *CurrentNum, float *TargetNum, float *ErrorNum, float 
 		/*这是一种奇特的方法，因为当当前值等于目标值的时候，其他项置零了，但是积分项并没有被置零。根据实际现象，这样的效果是最好的。 */
 		//如果用户将速度设置为0，那么当前值直接等于目标值，其他所有中间值置零
 		if(CurrentMenuPage->General_MovingSpeed <= 0){
-
 			*ErrorNum = 0;
 			*LastErrorNum = 0;
 			*DerivativeNum = 0;
@@ -291,10 +294,9 @@ void ChangeFloatNum(float *CurrentNum, float *TargetNum, float *ErrorNum, float 
 		}
 		// 定义PID参数
 		//定义PID参数
-		float Kp = 0.02f * CurrentMenuPage->General_MovingSpeed;
-		float Ki = 0.005f * CurrentMenuPage->General_MovingSpeed;
-		float Kd = 0.002f ;
-
+		float Kp = OLED_UI_PID_ANIM_KP * CurrentMenuPage->General_MovingSpeed;
+		float Ki = OLED_UI_PID_ANIM_KI * CurrentMenuPage->General_MovingSpeed;
+		float Kd = OLED_UI_PID_ANIM_KD * CurrentMenuPage->General_MovingSpeed;
 		//记录上一轮误差值
 		*LastErrorNum = *ErrorNum;
 		//计算本轮误差值
@@ -307,7 +309,6 @@ void ChangeFloatNum(float *CurrentNum, float *TargetNum, float *ErrorNum, float 
 		*CurrentNum += Kp * (*ErrorNum) + Ki *  (*IntegralNum) + Kd *(*DerivativeNum);
 		//当目标值与当前值差距小于0.5时，将目标值强制等于当前值，除了积分项不置零，其他所有中间值置零
 		if(fabs(*TargetNum - *CurrentNum) < 0.5f){
-
 			*ErrorNum = 0;
 			*LastErrorNum = 0;
 			*DerivativeNum = 0;
@@ -319,1360 +320,1779 @@ void ChangeFloatNum(float *CurrentNum, float *TargetNum, float *ErrorNum, float 
 }
 
 /**
- * @brief 非线性改变距离参数
+ * @brief 改变距离参数
  * @param CurrentNum 当前值的指针
  * @param TargetNum 目标值指针
  * @param StepNum 步长指针
  */
-void ChangeDistance(OLED_ChangeDistance *distance){
-	ChangeFloatNum(&distance->CurrentDistance,&distance->TargetDistance,&distance->Error,&distance->LastError,&distance->Integral,&distance->Derivative);
+void OLED_UI_ChangeDistance(OLED_UI_DistanceAnimation *distance){
+	OLED_UI_ChangeFloat(&distance->CurrentDistance,&distance->TargetDistance,&distance->_Error,&distance->_LastError,&distance->_Integral,&distance->_Derivative);
 }
 
 /**
- * @brief 非线性改变点坐标参数
+ * @brief 改变点坐标参数
  * @param OLED_MovingArea 结构体数组的指针
  * @return 无
  */
-void ChangePoint(OLED_ChangePoint *point){
-	ChangeFloatNum(&point->CurrentPoint.X,&point->TargetPoint.X,&point->Error.X,&point->LastError.X,&point->Integral.X,&point->Derivative.X);
-	ChangeFloatNum(&point->CurrentPoint.Y,&point->TargetPoint.Y,&point->Error.Y,&point->LastError.Y,&point->Integral.Y,&point->Derivative.Y);
+void OLED_UI_ChangePoint(OLED_UI_PointAnimation *point){
+	OLED_UI_ChangeFloat(&point->CurrentPoint.X,&point->TargetPoint.X,&point->_Error.X,&point->_LastError.X,&point->_Integral.X,&point->_Derivative.X);
+	OLED_UI_ChangeFloat(&point->CurrentPoint.Y,&point->TargetPoint.Y,&point->_Error.Y,&point->_LastError.Y,&point->_Integral.Y,&point->_Derivative.Y);
 }
+
 /**
- * @brief 非线性改变区域参数
+ * @brief 改变区域参数
  * @param OLED_MovingArea 结构体数组的指针
  * @return 无
  */
-void ChangeArea(OLED_ChangeArea *area)	{
-	ChangeFloatNum(&area->CurrentArea.X,&area->TargetArea.X,&area->Error.X,&area->LastError.X,&area->Integral.X,&area->Derivative.X);
-	ChangeFloatNum(&area->CurrentArea.Y,&area->TargetArea.Y,&area->Error.Y,&area->LastError.Y,&area->Integral.Y,&area->Derivative.Y);
-	ChangeFloatNum(&area->CurrentArea.Width,&area->TargetArea.Width,&area->Error.Width,&area->LastError.Width,&area->Integral.Width,&area->Derivative.Width);
-	ChangeFloatNum(&area->CurrentArea.Height,&area->TargetArea.Height,&area->Error.Height,&area->LastError.Height,&area->Integral.Height,&area->Derivative.Height);
+void OLED_UI_ChangeArea(OLED_UI_AreaAnimation *area)	{
+	OLED_UI_ChangeFloat(&area->CurrentArea.X,&area->TargetArea.X,&area->_Error.X,&area->_LastError.X,&area->_Integral.X,&area->_Derivative.X);
+	OLED_UI_ChangeFloat(&area->CurrentArea.Y,&area->TargetArea.Y,&area->_Error.Y,&area->_LastError.Y,&area->_Integral.Y,&area->_Derivative.Y);
+	OLED_UI_ChangeFloat(&area->CurrentArea.Width,&area->TargetArea.Width,&area->_Error.Width,&area->_LastError.Width,&area->_Integral.Width,&area->_Derivative.Width);
+	OLED_UI_ChangeFloat(&area->CurrentArea.Height,&area->TargetArea.Height,&area->_Error.Height,&area->_LastError.Height,&area->_Integral.Height,&area->_Derivative.Height);
 }
 
 
 
-
+/** 
+* @brief 获取当前菜单页面可以容纳的的槽位数量
+* @param 无
+* @return 当前菜单页面的槽位数量
+*/
+int16_t OLED_UI_GetMaxSlotNum(void){
+    if(CurrentMenuPage->General_MenuType == MENU_TYPE_LIST){
+        return (int16_t)(CurrentMenuPage->General_MenuArea.Height - CurrentMenuPage->General_StartPoint.Y+OLED_UI_LineStep.TargetDistance-1) / (OLED_UI_LineStep.TargetDistance + CurrentMenuPage->General_FontSize );
+    }else if(CurrentMenuPage->General_MenuType == MENU_TYPE_TILES){
+        return (int16_t)(CurrentMenuPage->General_MenuArea.Width - CurrentMenuPage->General_StartPoint.X+OLED_UI_LineStep.TargetDistance-1) / (OLED_UI_LineStep.TargetDistance + CurrentMenuPage->Tiles_TileWidth );
+    }else{
+			return 0;
+		}
+ }
+ 
+ /**
+  * @brief 获取菜单项结构体数组的最后一个元素的ID
+  * @param 无
+  * @return 菜单项结构体数组的最后一项的ID
+  */
+int16_t OLED_UI_GetMaxMenuItemNum(void){
+    int16_t num = 0;
+    while(CurrentMenuPage->General_MenuItems[num].General_item_text != NULL){
+        num+=1;
+    }
+    return num - 1;
+}
 /**
- * @brief 对当前的菜单页面的参数进行检查与初始化
+ * @brief 菜单项滚动动画结束判断
  * @param 无
- * @note 用于确认事件下进入子菜单时的操作
+ * @note 判断菜单项滚动动画是否结束
  * @return 无
  */
-void CurrentMenuPageInit(void){
-	//如果当前的菜单类型为LIST
-	if(CurrentMenuPage->General_MenuType == MENU_TYPE_LIST){
-		//设置全局页面当前起始点为菜单结构体的开始点+相对位置起始点
-		OLED_UI_PageStartPoint.CurrentPoint.X = OLED_UI_MenuFrame.CurrentArea.X+CurrentMenuPage->List_StartPointX + OLED_WIDTH;
-		OLED_UI_PageStartPoint.CurrentPoint.Y = OLED_UI_MenuFrame.CurrentArea.Y+CurrentMenuPage->List_StartPointY;
-		//设置全局页面目标起始点为菜单结构体的开始点+相对位置起始点
-		OLED_UI_PageStartPoint.TargetPoint.X = CurrentMenuPage->List_MenuArea.X+CurrentMenuPage->List_StartPointX;
-		OLED_UI_PageStartPoint.TargetPoint.Y = CurrentMenuPage->List_MenuArea.Y+CurrentMenuPage->List_StartPointY;
-		//设置全局页面目标区域为当前菜单结构体的区域
-		OLED_UI_MenuFrame.TargetArea.X = CurrentMenuPage->List_MenuArea.X;
-		OLED_UI_MenuFrame.TargetArea.Y = CurrentMenuPage->List_MenuArea.Y;
-		OLED_UI_MenuFrame.TargetArea.Width = CurrentMenuPage->List_MenuArea.Width;
-		OLED_UI_MenuFrame.TargetArea.Height = CurrentMenuPage->List_MenuArea.Height;
+bool OLED_UI_IfAnimationEnd(uint8_t AnimationType){
+    // 如果当前正在运行窗口
+    if(AnimationType == ANIM_WINDOW){
+        return (OLED_UI_Window.CurrentArea.Width == OLED_UI_Window.TargetArea.Width && 
+            OLED_UI_Window.CurrentArea.Height == OLED_UI_Window.TargetArea.Height && 
+            OLED_UI_Window.CurrentArea.X == OLED_UI_Window.TargetArea.X && 
+            OLED_UI_Window.CurrentArea.Y == OLED_UI_Window.TargetArea.Y);
+    }else if(AnimationType == ANIM_MENU){
 
-		//设置当前行间距为-字体大小以制造菜单项展开的动画效果
-		OLED_UI_LineStep.CurrentDistance =-3;
-		//设置目标行间距为用户设置的行距
-		OLED_UI_LineStep.TargetDistance = CurrentMenuPage->General_LineSpace;
-		//设置当前光标为当前菜单项的第一个
-		CurrentMenuPage->_ActiveMenuID = 0;
-		//设置当前槽位为0
-		CurrentMenuPage->_Slot = 0;
-	}
-	//如果当前的菜单类型为TILES
-	if (CurrentMenuPage->General_MenuType == MENU_TYPE_TILES)
-	{
-		//设置全局页面目标起始点为屏幕中央向左偏移半个磁贴宽度，使得当前菜单项居中
-		OLED_UI_PageStartPoint.TargetPoint.X = CurrentMenuPage->Tiles_ScreenWidth/2-CurrentMenuPage->Tiles_TileWidth/2;
-		//设置全局页面目标起始点为预设的起始点
-		OLED_UI_PageStartPoint.TargetPoint.Y = TILES_STARTPOINT_Y;
-		//设置全局页面当前起始点为一个负的位置，使得开始时有动画
-		OLED_UI_PageStartPoint.CurrentPoint.X = -50;
-		OLED_UI_PageStartPoint.CurrentPoint.Y = -CurrentMenuPage->Tiles_TileWidth;
-		//设置当前磁贴间距为1以便产生动画效果
-		OLED_UI_LineStep.CurrentDistance = 1;
-		//设置目标磁贴间距为用户设置的行距
-		OLED_UI_LineStep.TargetDistance = CurrentMenuPage->General_LineSpace;
-		//设置当前光标为当前菜单项的第一个
-		CurrentMenuPage->_ActiveMenuID = 0;
-	}
-	//将滚动的开始点归零，确保当确认或是返回操作时，滚动的菜单项都从新开始
-	SetLineSplitZero();
+        return OLED_UI_MenuFrame.CurrentArea.Width == OLED_UI_MenuFrame.TargetArea.Width && 
+            OLED_UI_MenuFrame.CurrentArea.Height == OLED_UI_MenuFrame.TargetArea.Height && 
+            OLED_UI_MenuFrame.CurrentArea.X == OLED_UI_MenuFrame.TargetArea.X && 
+            OLED_UI_MenuFrame.CurrentArea.Y == OLED_UI_MenuFrame.TargetArea.Y &&  
+            OLED_UI_PageStartPoint.CurrentPoint.X == OLED_UI_PageStartPoint.TargetPoint.X;
+    }else{
+			return 0;
+		}
+
 }
+
+
+
+
 /**
- * @brief 还原菜单参数到上一次的状态
+ * @brief 设置滚动条高度/宽度
  * @param 无
- * @note 用于返回上一级菜单时的操作
+ * @note 该函数用于设置滚动条的高度/宽度
  * @return 无
  */
-void CurrentMenuPageBackUp(void){
-	//如果当前的菜单类型为LIST
-	if(CurrentMenuPage->General_MenuType == MENU_TYPE_LIST){
-		//设置全局页面当前起始点为菜单结构体的开始点+2
-		OLED_UI_PageStartPoint.CurrentPoint.X = OLED_UI_MenuFrame.CurrentArea.X + CurrentMenuPage->List_StartPointX - OLED_WIDTH;
-		OLED_UI_PageStartPoint.CurrentPoint.Y = CurrentMenuPage->_StartPoint.Y;
-		//设置全局页面目标起始点为菜单结构体的开始点
-		OLED_UI_PageStartPoint.TargetPoint.X = CurrentMenuPage->_StartPoint.X;
-		OLED_UI_PageStartPoint.TargetPoint.Y = CurrentMenuPage->_StartPoint.Y;
-		//设置当前行间距为-字体大小以制造动画效果
-		OLED_UI_LineStep.CurrentDistance = CurrentMenuPage->General_LineSpace;
-		//设置目标行间距
-		OLED_UI_LineStep.TargetDistance = CurrentMenuPage->General_LineSpace;
-	}
-	//如果当前的菜单类型为TILES
-	if (CurrentMenuPage->General_MenuType == MENU_TYPE_TILES)
-	{
-		//设置全局页面当前起始点为菜单结构体的开始点+2
-		OLED_UI_PageStartPoint.CurrentPoint.X = CurrentMenuPage->_StartPoint.X + CurrentMenuPage->Tiles_TileWidth;
-		OLED_UI_PageStartPoint.CurrentPoint.Y = -CurrentMenuPage->Tiles_TileHeight-1;
-		//设置全局页面目标起始点为菜单结构体的开始点
-		OLED_UI_PageStartPoint.TargetPoint.X = CurrentMenuPage->_StartPoint.X;
-		OLED_UI_PageStartPoint.TargetPoint.Y = CurrentMenuPage->_StartPoint.Y;
-		//设置当前行间距为-字体大小以制造动画效果
-		OLED_UI_LineStep.CurrentDistance = CurrentMenuPage->General_LineSpace;
-		//设置目标行间距
-		OLED_UI_LineStep.TargetDistance = CurrentMenuPage->General_LineSpace;
-	}
-	//将滚动的开始点归零，确保当确认或是返回操作时，滚动的菜单项都从新开始
-	SetLineSplitZero();
+void OLED_UI_SetTargetScrollBarHeight(void)
+{
+    if(CurrentMenuPage->General_MenuType == MENU_TYPE_LIST){
+		OLED_UI_ScrollBarHeight.TargetDistance = (float)OLED_UI_MenuFrame.CurrentArea.Height* (CurrentMenuPage->_ActiveMenuID + 1)/(OLED_UI_GetMaxMenuItemNum() + 1);
+	}else if(CurrentMenuPage->General_MenuType == MENU_TYPE_TILES){
+        OLED_UI_ScrollBarHeight.TargetDistance = (float)OLED_UI_MenuFrame.CurrentArea.Width* (CurrentMenuPage->_ActiveMenuID + 1)/(OLED_UI_GetMaxMenuItemNum() + 1);
+    }
 }
 
 /**
- * @brief 初始化OLED_UI，设置当前页面的结构体指针，并初始化OLED显示屏
- * @param Page 菜单页面结构体
+ * @brief 设置磁贴页面菜单项文字的起始点
+ * @param 无
+ * @note 该函数用于设置磁贴页面菜单项文字的起始点
  * @return 无
  */
-void OLED_UI_Init(MenuPage* Page){
-	//初始化OLED显示屏
-	OLED_Init();
+void OLED_UI_SetTiles_FontTopDistance(void){
+    if(CurrentMenuPage->General_MenuType == MENU_TYPE_TILES){
+        OLED_UI_Tiles_FontTopDistance.TargetDistance = OLED_UI_MenuFrame.TargetArea.Y + CurrentMenuPage->Tiles_FontTopDistance;
+    }
+}
 
-	//启动定时器
-	HAL_TIM_Base_Start_IT(&htim16);
-	//Timer_Init();
-	//Key_Init();
-	Encoder_Init();
+/**
+ * @brief 设置滚动条起始点
+ * @param 无
+ * @note 该函数用于设置滚动条的起始点
+ */
+void OLED_UI_SetTargetScrollBarStartPoint(void){
 
-	//设置当前页面的结构体指针
-	CurrentMenuPage = Page;	//设置当前页面的结构体指针
-	//初始化菜单页面参数
-	CurrentMenuPageInit();
+    if(CurrentMenuPage->General_MenuType == MENU_TYPE_TILES){
+        OLED_UI_ScrollBarStartPoint.TargetPoint.X = OLED_UI_MenuFrame.CurrentArea.X;
+        OLED_UI_ScrollBarStartPoint.TargetPoint.Y = CurrentMenuPage->Tiles_ScrollBarTopDistance + OLED_UI_MenuFrame.CurrentArea.Y ;
+    }
+
+}
+
+/**
+ * @brief 设置菜单区域高度/宽度
+ * @note 该函数用于设置菜单区域的高度/宽度
+ * @return 无
+ */
+void OLED_UI_SetTargetMenuArea(void)
+{
+    OLED_UI_MenuFrame.TargetArea.X = CurrentMenuPage->General_MenuArea.X;
+    OLED_UI_MenuFrame.TargetArea.Y = CurrentMenuPage->General_MenuArea.Y;
+	OLED_UI_MenuFrame.TargetArea.Height = CurrentMenuPage->General_MenuArea.Height;
+	OLED_UI_MenuFrame.TargetArea.Width = CurrentMenuPage->General_MenuArea.Width;
 	
 }
 
-
-
 /**
- * @brief 获取enter事件状态，用于判断是否正在执行回调函数
- * @param void
+ * @brief 设置光标区域
+ * @param 无
+ * @note 该函数用于设置光标的目标显示区域
  * @return 无
  */
-bool GetEnterFlag(void){
-	if(KeyEnterFlag == FLAGEND){
-		return true;
-	}else{
-		return false;
+void OLED_UI_SetTargetCursorArea(void)
+{
+    if(CurrentMenuPage->General_MenuType == MENU_TYPE_LIST)
+    {
+        //目标光标x坐标等于 开始打印页面起始点的x坐标减1【减去1是为了确保光标覆盖到菜单项的文字】
+		OLED_UI_Cursor.TargetArea.X = OLED_UI_PageStartPoint.TargetPoint.X -1;
+
+        //目标光标y坐标等于 开始打印页面起始点的y坐标  加上  (字体高度 加 行距)乘 当前页面的ID号 减1【减去1是为了确保光标覆盖到菜单项的文字】
+		OLED_UI_Cursor.TargetArea.Y = OLED_UI_PageStartPoint.TargetPoint.Y + CurrentMenuPage->_ActiveMenuID * ( CurrentMenuPage->General_LineSpace + CurrentMenuPage->General_FontSize) -1 ;
+
+        //目标光标高度等于 字体高度 加2【加2是为了确保光标覆盖到菜单项的文字】
+		OLED_UI_Cursor.TargetArea.Height = CurrentMenuPage->General_FontSize + 2;
+
+        int8_t LinePerfixWidth = 0;
+        int8_t RadioCompensationWidth = 0;
+		if(CurrentMenuPage->List_IfDrawLinePerfix == true){
+			LinePerfixWidth = OLED_GetFontWidth(CurrentMenuPage->General_FontSize,OLED_ASCII) + LINEPERFIX_DISTANCE;
+		}else{
+            LinePerfixWidth = 0;
+        }
+        //如果需要绘制单选框(即BoolRadioBox不为空)
+        if(CurrentMenuPage->General_MenuItems[CurrentMenuPage->_ActiveMenuID].List_BoolRadioBox != NULL){
+            RadioCompensationWidth = (OLED_GetFontWidth(CurrentMenuPage->General_FontSize,OLED_CHINESE) + 2);
+        }else{
+            RadioCompensationWidth = 0;
+        }
+
+        OLED_UI_Cursor.TargetArea.Width =  fmin((float)
+            OLED_UI_CalcStringWidth(CurrentMenuPage->General_FontSize,CurrentMenuPage->General_MenuItems[CurrentMenuPage->_ActiveMenuID].General_item_text)
+            + LinePerfixWidth + 2, 
+			//当前页面的宽度 加 当前页面的起始坐标 减去开始打印页面起始点的坐标 减去6（是滚动条宽度加一）加上行前缀的宽度
+			OLED_UI_MenuFrame.TargetArea.Width + OLED_UI_MenuFrame.TargetArea.X - OLED_UI_PageStartPoint.TargetPoint.X - 6 - RadioCompensationWidth ) ;
+    }
+    if(CurrentMenuPage->General_MenuType == MENU_TYPE_TILES)
+    {
+        //目标光标Y坐标等于 开始打印页面起始点的Y坐标减1【减去1是为了确保光标覆盖到菜单项的文字】
+		OLED_UI_Cursor.TargetArea.Y = OLED_UI_PageStartPoint.TargetPoint.Y - 3;
+
+        //目标光标y坐标等于 开始打印页面起始点的X坐标  加上  (磁贴高度 加 行距)乘 当前页面的ID号 减1【减去1是为了确保光标覆盖到菜单项的文字】
+        OLED_UI_Cursor.TargetArea.X = OLED_UI_PageStartPoint.TargetPoint.X + CurrentMenuPage->_ActiveMenuID * ( CurrentMenuPage->General_LineSpace + CurrentMenuPage->Tiles_TileWidth) - 3 ;
+
+        //目标光标高度等于 磁贴高度 加2【加2是为了确保光标覆盖到菜单项的文字】
+		OLED_UI_Cursor.TargetArea.Height = CurrentMenuPage->Tiles_TileHeight + 6;
+
+        //目标光标宽度等于 磁贴宽度 加2【加2是为了确保光标覆盖到菜单项的文字】
+		OLED_UI_Cursor.TargetArea.Width = CurrentMenuPage->Tiles_TileWidth + 6;
+
+    }
+
+}
+
+/**
+ * @brief 将当前页面的LineSlip 设置为0
+ * @param 无
+ * @return 无
+ */
+void OLED_UI_SetLineSplitZero(void){
+
+	for(int16_t i = 0; i<=OLED_UI_GetMaxMenuItemNum();i++){
+		CurrentMenuPage->General_MenuItems[i]._LineSlip = 0;
 	}
 }
 
 /**
- * @brief 获取enter事件状态，用于判断是否正在执行回调函数
- * @param void
+ * @brief 将菜单整体向上或左移动一行
+ * @param 无
  * @return 无
  */
-bool GetFadeoutFlag(void){
-	if(FadeOutFlag == FLAGEND){
-		return true;
-	}else{
-		return false;
+void OLED_UI_MenuItemsMoveMinus(void){
+    if(CurrentMenuPage->General_MenuType == MENU_TYPE_LIST){
+	    OLED_UI_PageStartPoint.TargetPoint.Y -= (OLED_UI_LineStep.TargetDistance + CurrentMenuPage->General_FontSize);
+    }
+    if(CurrentMenuPage->General_MenuType == MENU_TYPE_TILES){
+	    OLED_UI_PageStartPoint.TargetPoint.X -= (OLED_UI_LineStep.TargetDistance + CurrentMenuPage->Tiles_TileWidth);
+    }
+}
+/**
+ * @brief 将菜单整体向下或右移动一行
+ * @param 无
+ * @return 无
+ */
+void OLED_UI_MenuItemsMovePlus(void){
+    if(CurrentMenuPage->General_MenuType == MENU_TYPE_LIST){
+	    OLED_UI_PageStartPoint.TargetPoint.Y += (OLED_UI_LineStep.TargetDistance + CurrentMenuPage->General_FontSize);
+    }
+    if(CurrentMenuPage->General_MenuType == MENU_TYPE_TILES){
+	    OLED_UI_PageStartPoint.TargetPoint.X += (OLED_UI_LineStep.TargetDistance + CurrentMenuPage->Tiles_TileWidth);
+    }
+}
+
+/**
+ * @brief 获取与处理输入
+ * @param 无
+ * @note 请保证OLED_UI_Config.h中定义的OLED_UI_INTERRUPT_TIME与实际情况相符。
+ * @note 该函数在定时器中断中调用，用于处理输入。
+ * @return 无
+ */
+void OLED_UI_HandleInput_Interrupt(void)
+{
+    //记录上一轮的按键状态
+    OLED_UI_Enter._LastStatus = OLED_UI_Enter._CurrentStatus;
+    OLED_UI_Back._LastStatus = OLED_UI_Back._CurrentStatus;
+    OLED_UI_Up._LastStatus = OLED_UI_Up._CurrentStatus;
+    OLED_UI_Down._LastStatus = OLED_UI_Down._CurrentStatus;
+    OLED_UI_EncoderKey._LastStatus = OLED_UI_EncoderKey._CurrentStatus;
+
+
+    //获取按键状态
+    OLED_UI_Enter._CurrentStatus = Key_GetEnterStatus();
+    OLED_UI_Back._CurrentStatus = Key_GetBackStatus();
+    OLED_UI_Up._CurrentStatus = Key_GetUpStatus();
+    OLED_UI_Down._CurrentStatus = Key_GetDownStatus();
+    OLED_UI_EncoderKey._CurrentStatus = Key_GetEncoderStatus();
+
+    //处理按键状态
+    OLED_UI_KeyControlProcess(&OLED_UI_Enter);
+    OLED_UI_KeyControlProcess(&OLED_UI_Back);
+    OLED_UI_KeyControlProcess(&OLED_UI_Up);
+    OLED_UI_KeyControlProcess(&OLED_UI_Down);
+    OLED_UI_KeyControlProcess(&OLED_UI_EncoderKey);
+
+    
+}
+
+/**
+ * @brief 反转显示光标
+ * @param X 光标X坐标
+ * @param Y 光标Y坐标
+ * @param Width 光标宽度
+ * @param Height 光标高度
+ * @param Style 光标样式
+ * @note 该函数用于反转显示光标，使其显示为反色
+ * @return 无
+ */
+void OLED_UI_ReverseCoordinate(int16_t X, int16_t Y, int16_t Width, int16_t Height,uint8_t Style){
+    // 对光标进行限幅
+    if(CurrentMenuPage->General_MenuType == MENU_TYPE_LIST){
+        if(X + Width >= OLED_UI_MenuFrame.CurrentArea.X + OLED_UI_MenuFrame.CurrentArea.Width -6){
+            Width = OLED_UI_MenuFrame.CurrentArea.X + OLED_UI_MenuFrame.CurrentArea.Width - 6 - X;
+        }
+        if(X  <= OLED_UI_MenuFrame.CurrentArea.X){
+            
+            Width = X + Width - OLED_UI_MenuFrame.CurrentArea.X;
+            X = OLED_UI_MenuFrame.CurrentArea.X;
+        }
+        if(Y + Height >= OLED_UI_MenuFrame.CurrentArea.Y + OLED_UI_MenuFrame.CurrentArea.Height){
+            Height = OLED_UI_MenuFrame.CurrentArea.Y + OLED_UI_MenuFrame.CurrentArea.Height - Y;
+        }
+        if(Y <= OLED_UI_MenuFrame.CurrentArea.Y){
+            Height = Y + Height - OLED_UI_MenuFrame.CurrentArea.Y;
+            Y = OLED_UI_MenuFrame.CurrentArea.Y;
+          
+        }
+        
+    }
+	switch(Style){
+		
+		case CURSOR_REVERSE_RECTANGLE://矩形反色
+			OLED_ReverseArea(X, Y, Width, Height);
+			break;
+		case CURSOR_REVERSE_ROUNDRECTANGLE://圆角矩形反色
+			if(Width >= 3 && Height >= 3){
+				OLED_ReverseArea(X, Y, 1, 1);
+				OLED_ReverseArea(X+Width-1, Y, 1, 1);
+				OLED_ReverseArea(X, Y+Height-1, 1, 1);
+				OLED_ReverseArea(X+Width-1, Y+Height-1, 1, 1);
+			}
+			OLED_ReverseArea(X, Y, Width, Height);
+			break;
+
+		case CURSOR_HOLLOW_RECTANGLE://空心矩形
+			OLED_ReverseArea(X, Y, Width, Height);
+			OLED_ReverseArea(X+1, Y+1, Width-2, Height-2);
+			break;
+		case CURSOR_HOLLOW_ROUNDRECTANGLE://空心矩形
+			OLED_ReverseArea(X, Y, Width, Height);
+			OLED_ReverseArea(X+1, Y+1, Width-2, Height-2);
+			if(Width >= 3){
+				OLED_ReverseArea(X, Y, 1, 1);
+				OLED_ReverseArea(X+Width-1, Y, 1, 1);
+			}
+			if(Height >= 3){
+				OLED_ReverseArea(X, Y+Height-1, 1, 1);
+				OLED_ReverseArea(X+Width-1, Y+Height-1, 1, 1);
+			}
+			break;
+		case CURSOR_REVERSE_BLOCK://小方块
+			
+			OLED_ReverseArea(X, Y + 1, OLED_GetFontWidth(CurrentMenuPage->General_FontSize,OLED_ASCII), Height);
+		
+			break;
+        case CURSOR_ARROW://箭头
+            OLED_ShowImageArea(
+                OLED_UI_MenuFrame.CurrentArea.X,
+                OLED_UI_MenuFrame.CurrentArea.Y,
+                OLED_UI_MenuFrame.CurrentArea.Width,
+                OLED_UI_MenuFrame.CurrentArea.Height,
+                X + Width/2 - 3,
+                Y - 5,
+                6,
+                5,
+                Arrow
+
+            );
+
+            break;
+		case CURSOR_NOT_SHOW:
+			break;
+		default:
+			OLED_ReverseArea(X, Y, Width, Height);
+		break;
 	}
 }
 
 /**
- * @brief 计算字符串的宽度（可以是中英文字符串）
- * @param String 字符串指针
- * @param ChineseFont 中文字体宽度
- * @param ASCIIFont ASCII字体宽度
- * @return 字符串的宽度
+ * @brief 将CurrentMenuPage初始化
+ * @param 无
+ * @note 将CurrentMenuPage的属性初始化，与全局动画变量构建联系
+ * @return 无
  */
-int16_t CalcStringWidth(int16_t ChineseFont, int16_t ASCIIFont, const char *format, ...) {
-    int16_t StringLength = 0;
-    char String[MAX_STRING_LENGTH];
+void OLED_UI_CurrentMenuPageInit(void){
+    // 初始化菜单的目标区域
+    OLED_UI_MenuFrame.TargetArea.X = CurrentMenuPage->General_MenuArea.X;
+    OLED_UI_MenuFrame.TargetArea.Y = CurrentMenuPage->General_MenuArea.Y;
+    OLED_UI_MenuFrame.TargetArea.Width = CurrentMenuPage->General_MenuArea.Width;
+    OLED_UI_MenuFrame.TargetArea.Height = CurrentMenuPage->General_MenuArea.Height;
+    //初始化行距或磁贴间距
+	OLED_UI_LineStep.TargetDistance = CurrentMenuPage->General_LineSpace;
+    //初始化当前行间距或磁贴间距
+    OLED_UI_LineStep.CurrentDistance = CurrentMenuPage->General_LineSpace;
+    //初始化当前活跃给菜单项ID
+	CurrentMenuPage->_ActiveMenuID = CurrentMenuPage->General_InitMenuID;
+	//初始化当前槽位
+	CurrentMenuPage->_Slot = CurrentMenuPage->General_InitSlot;
+    // 标记为已经初始化
+    CurrentMenuPage->_IfInit = true;
 
-    va_list args;
-    va_start(args, format);
-    vsnprintf(String, sizeof(String), format, args); // 使用vsnprintf
-    va_end(args);
+    if(CurrentMenuPage->General_MenuType == MENU_TYPE_LIST){
+        // 初始化菜单的开始区域目标值
+        OLED_UI_PageStartPoint.TargetPoint.X = CurrentMenuPage->General_StartPoint.X + CurrentMenuPage->General_MenuArea.X;
+        OLED_UI_PageStartPoint.TargetPoint.Y = CurrentMenuPage->General_StartPoint.Y + CurrentMenuPage->General_MenuArea.Y - (CurrentMenuPage->General_InitMenuID - CurrentMenuPage->General_InitSlot)*(CurrentMenuPage->General_FontSize + CurrentMenuPage->General_LineSpace);
+        // 初始化菜单的当前值
+		OLED_UI_PageStartPoint.CurrentPoint.X = OLED_UI_MenuFrame.CurrentArea.X+CurrentMenuPage->General_StartPoint.X + OLED_WIDTH;
+		OLED_UI_PageStartPoint.CurrentPoint.Y = CurrentMenuPage->General_StartPoint.Y + CurrentMenuPage->General_MenuArea.Y - (CurrentMenuPage->General_InitMenuID - CurrentMenuPage->General_InitSlot)*(CurrentMenuPage->General_FontSize + CurrentMenuPage->General_LineSpace);
+        // 初始化光标的当前区域
+        OLED_UI_Cursor.CurrentArea.Width = 0;
+        OLED_UI_Cursor.CurrentArea.Height = CurrentMenuPage->General_FontSize + 2;
+        OLED_UI_Cursor.CurrentArea.X = CurrentMenuPage->General_MenuArea.X + CurrentMenuPage->General_MenuArea.Width;
+        OLED_UI_Cursor.CurrentArea.Y = CurrentMenuPage->General_MenuArea.Y + CurrentMenuPage->General_StartPoint.Y + CurrentMenuPage->General_InitSlot*(CurrentMenuPage->General_FontSize + CurrentMenuPage->General_LineSpace);
 
-    char *ptr = String;
-    while (*ptr != '\0') {
-        if ((unsigned char)*ptr & 0x80) { // 处理中文字符
-            StringLength += ChineseFont;
-            ptr += 2;
-        } else {
-            StringLength += ASCIIFont;
-            ptr++;
+    }
+    if(CurrentMenuPage->General_MenuType == MENU_TYPE_TILES){
+        // 初始化菜单的目标值
+        OLED_UI_PageStartPoint.TargetPoint.X = CurrentMenuPage->General_StartPoint.X + CurrentMenuPage->General_MenuArea.X - (CurrentMenuPage->General_InitMenuID - CurrentMenuPage->General_InitSlot)*(CurrentMenuPage->Tiles_TileWidth + CurrentMenuPage->General_LineSpace);
+        OLED_UI_PageStartPoint.TargetPoint.Y = CurrentMenuPage->General_StartPoint.Y + CurrentMenuPage->General_MenuArea.Y;
+        // 初始化菜单的当前值
+		OLED_UI_PageStartPoint.CurrentPoint.X = OLED_UI_PageStartPoint.TargetPoint.X + 2*CurrentMenuPage->Tiles_TileWidth;
+		OLED_UI_PageStartPoint.CurrentPoint.Y = OLED_UI_MenuFrame.CurrentArea.Y - CurrentMenuPage->Tiles_TileHeight;
+        // 初始化菜单的当前区域（对于Tiles菜单，如果不设置当前区域，动画会有割裂感）
+        OLED_UI_MenuFrame.CurrentArea.X = CurrentMenuPage->General_MenuArea.X;
+        OLED_UI_MenuFrame.CurrentArea.Y = CurrentMenuPage->General_MenuArea.Y;
+        OLED_UI_MenuFrame.CurrentArea.Width = CurrentMenuPage->General_MenuArea.Width;
+        OLED_UI_MenuFrame.CurrentArea.Height = CurrentMenuPage->General_MenuArea.Height;
+        // 初始化光标的当前区域
+        OLED_UI_Cursor.CurrentArea.Width = 0;
+        OLED_UI_Cursor.CurrentArea.Height = 0;
+        OLED_UI_Cursor.CurrentArea.X = OLED_UI_MenuFrame.CurrentArea.X;
+        OLED_UI_Cursor.CurrentArea.Y = OLED_UI_MenuFrame.CurrentArea.Y;
+        // 初始化滚动条起始点（对于Tiles菜单，滚动条起始点是特有的属性）
+        OLED_UI_ScrollBarStartPoint.CurrentPoint.X = OLED_UI_MenuFrame.CurrentArea.X;
+        OLED_UI_ScrollBarStartPoint.CurrentPoint.Y = OLED_UI_MenuFrame.CurrentArea.Y + OLED_UI_MenuFrame.CurrentArea.Height;
+        //设置字体到顶部的距离（对于Tiles菜单，字体到顶部的距离是特有的属性）
+        OLED_UI_Tiles_FontTopDistance.CurrentDistance = OLED_UI_MenuFrame.TargetArea.Y + OLED_UI_MenuFrame.TargetArea.Height;
+        
+    }
+    
+}
+
+/**
+ * @brief 将CurrentMenuPage的备份还原
+ * @param 无
+ * @note 当返回的时候，还原CurrentMenuPage的备份
+ * @return 无
+ */
+void OLED_UI_CurrentMenuPageBackUp(void){
+    // 恢复菜单的目标值
+    OLED_UI_PageStartPoint.TargetPoint.X = CurrentMenuPage->_StartPoint.X;
+    OLED_UI_PageStartPoint.TargetPoint.Y = CurrentMenuPage->_StartPoint.Y;
+    //恢复当前行间距
+	OLED_UI_LineStep.CurrentDistance = CurrentMenuPage->General_LineSpace;
+	//恢复目标行间距
+	OLED_UI_LineStep.TargetDistance = CurrentMenuPage->General_LineSpace;
+    // 恢复菜单的目标区域
+    OLED_UI_MenuFrame.TargetArea.X = CurrentMenuPage->General_MenuArea.X;
+    OLED_UI_MenuFrame.TargetArea.Y = CurrentMenuPage->General_MenuArea.Y;
+    OLED_UI_MenuFrame.TargetArea.Width = CurrentMenuPage->General_MenuArea.Width;
+    OLED_UI_MenuFrame.TargetArea.Height = CurrentMenuPage->General_MenuArea.Height;
+
+    if(CurrentMenuPage->General_MenuType == MENU_TYPE_LIST){
+        // 恢复菜单的当前值
+        OLED_UI_PageStartPoint.CurrentPoint.X = OLED_UI_MenuFrame.CurrentArea.X + CurrentMenuPage->General_StartPoint.X - OLED_WIDTH;
+		OLED_UI_PageStartPoint.CurrentPoint.Y = CurrentMenuPage->_StartPoint.Y;
+        // 设置光标的目标区域
+        OLED_UI_Cursor.CurrentArea.Width = 0;
+        OLED_UI_Cursor.CurrentArea.Height = CurrentMenuPage->General_FontSize + 2;
+        OLED_UI_Cursor.CurrentArea.X = CurrentMenuPage->General_MenuArea.X + CurrentMenuPage->General_StartPoint.X;
+        OLED_UI_Cursor.CurrentArea.Y = CurrentMenuPage->General_MenuArea.Y + CurrentMenuPage->General_StartPoint.Y + CurrentMenuPage->_Slot*(CurrentMenuPage->General_FontSize + CurrentMenuPage->General_LineSpace);
+
+    }
+    if(CurrentMenuPage->General_MenuType == MENU_TYPE_TILES){
+        // 恢复菜单的当前值
+        OLED_UI_PageStartPoint.CurrentPoint.X = OLED_UI_PageStartPoint.TargetPoint.X - 2*CurrentMenuPage->Tiles_TileWidth;
+		OLED_UI_PageStartPoint.CurrentPoint.Y = OLED_UI_MenuFrame.CurrentArea.Y - CurrentMenuPage->Tiles_TileHeight;
+        // 恢复光标的目标区域
+        OLED_UI_Cursor.CurrentArea.Width = 0;
+        OLED_UI_Cursor.CurrentArea.Height = CurrentMenuPage->General_FontSize + 2;
+        OLED_UI_Cursor.CurrentArea.X = CurrentMenuPage->General_MenuArea.X + CurrentMenuPage->General_StartPoint.X;
+        OLED_UI_Cursor.CurrentArea.Y = CurrentMenuPage->General_MenuArea.Y + CurrentMenuPage->General_StartPoint.Y + CurrentMenuPage->_Slot*(CurrentMenuPage->General_FontSize + CurrentMenuPage->General_LineSpace);
+        // 初始化菜单的当前区域（对于Tiles菜单，如果不设置当前区域，动画会有割裂感）
+        OLED_UI_MenuFrame.CurrentArea.X = CurrentMenuPage->General_MenuArea.X;
+        OLED_UI_MenuFrame.CurrentArea.Y = CurrentMenuPage->General_MenuArea.Y;
+        OLED_UI_MenuFrame.CurrentArea.Width = CurrentMenuPage->General_MenuArea.Width;
+        OLED_UI_MenuFrame.CurrentArea.Height = CurrentMenuPage->General_MenuArea.Height;
+        // 恢复滚动条起始点（对于Tiles菜单，滚动条起始点是特有的属性）
+        OLED_UI_ScrollBarStartPoint.CurrentPoint.X = OLED_UI_MenuFrame.CurrentArea.X;
+        OLED_UI_ScrollBarStartPoint.CurrentPoint.Y = OLED_UI_MenuFrame.CurrentArea.Y + OLED_UI_MenuFrame.CurrentArea.Height;
+        //恢复字体到顶部的距离（对于Tiles菜单，字体到顶部的距离是特有的属性）
+        OLED_UI_Tiles_FontTopDistance.CurrentDistance = OLED_UI_MenuFrame.TargetArea.Y + OLED_UI_MenuFrame.TargetArea.Height;
+
+    }
+}
+
+/**
+ * @brief 此函数处理确认任务
+ * @param 无
+ * @return 无
+ */
+void OLED_UI_EnterTask(void){
+    // 确认任务类型,0为无操作，1为BoolRadioBox确认任务，2为回调函数确认任务，3为子菜单确认任务.其中子菜单优先级最高。
+    int8_t EnterTaskType = 0;
+    int8_t Offset = 0;
+    int16_t X;
+    int16_t Y;
+    int16_t Width;
+    int16_t Height;
+
+    // 如果当前菜单项有BoolRadioBox，则确认任务类型为1
+    if (CurrentMenuPage->General_MenuItems[CurrentMenuPage->_ActiveMenuID].List_BoolRadioBox != NULL){
+        EnterTaskType = 1;
+    }
+    if(CurrentMenuPage->General_MenuItems[CurrentMenuPage->_ActiveMenuID].General_callback != NULL){
+        EnterTaskType = 2;
+    }
+    if(CurrentMenuPage->General_MenuItems[CurrentMenuPage->_ActiveMenuID].General_SubMenuPage != NULL){
+        EnterTaskType = 3;
+    }
+
+    switch(EnterTaskType)
+    {
+        case 1: // BoolRadioBox确认任务
+            *CurrentMenuPage->General_MenuItems[CurrentMenuPage->_ActiveMenuID].List_BoolRadioBox = !(*CurrentMenuPage->General_MenuItems[CurrentMenuPage->_ActiveMenuID].List_BoolRadioBox);
+            break;
+        case 2: // 回调函数确认任务
+            OLED_UI_EncoderDisable();
+            CurrentMenuPage->General_MenuItems[CurrentMenuPage->_ActiveMenuID].General_callback();
+            OLED_UI_EncoderEnable();
+            break;
+
+        case 3: // 子菜单确认任务
+            if(CurrentMenuPage->General_MenuItems[CurrentMenuPage->_ActiveMenuID].General_SubMenuPage->General_MenuType == MENU_TYPE_LIST && CurrentMenuPage->General_MenuType == MENU_TYPE_LIST){
+                Offset = -5;
+            }
+            //如果父菜单没有边框并且当前菜单有边框
+            if(CurrentMenuPage->General_MenuItems[CurrentMenuPage->_ActiveMenuID].General_SubMenuPage->General_MenuFrameStyle == MENU_FRAME_NONE && CurrentMenuPage->General_MenuFrameStyle != MENU_FRAME_NONE ){
+                X = OLED_UI_MenuFrame.CurrentArea.X - 1;
+                Y = OLED_UI_MenuFrame.CurrentArea.Y - 1;
+                Width = OLED_UI_MenuFrame.CurrentArea.Width + 2;
+                Height = OLED_UI_MenuFrame.CurrentArea.Height + 2;
+            }else{
+                X = OLED_UI_MenuFrame.CurrentArea.X;
+                Y = OLED_UI_MenuFrame.CurrentArea.Y;
+                Width = OLED_UI_MenuFrame.CurrentArea.Width + Offset;
+                Height = OLED_UI_MenuFrame.CurrentArea.Height;
+            }
+            //将当前菜单的位置保存，以便返回时恢复
+			CurrentMenuPage->_StartPoint.X = OLED_UI_PageStartPoint.TargetPoint.X;
+			CurrentMenuPage->_StartPoint.Y = OLED_UI_PageStartPoint.TargetPoint.Y;
+            //清除当前菜单页面
+            //清除当前菜单页面
+            OLED_UI_ClearAreaWithFadeOut(X,Y,Width,Height);
+            // 跳转到子菜单
+            CurrentMenuPage = CurrentMenuPage->General_MenuItems[CurrentMenuPage->_ActiveMenuID].General_SubMenuPage;
+            // 将滚动偏移值归零
+            OLED_UI_SetLineSplitZero();
+            OLED_UI_CurrentMenuPageInit();
+            break;
+        default:
+            break;
+    }
+
+    
+}
+
+/**
+ * @brief 此函数处理取消任务
+ * @param 无
+ * @return 无
+ */
+void OLED_UI_BackTask(void){
+
+    if(CurrentMenuPage->General_ParentMenuPage != NULL){
+        int16_t X;
+        int16_t Y;
+        int8_t Offset = 0;
+        int16_t Width;
+        int16_t Height;
+        
+        if(CurrentMenuPage->General_ParentMenuPage->General_MenuType == MENU_TYPE_LIST && CurrentMenuPage->General_MenuType == MENU_TYPE_LIST){
+            Offset = -5;
+        }
+        //如果父菜单没有边框并且当前菜单有边框
+        if(CurrentMenuPage->General_ParentMenuPage->General_MenuFrameStyle == MENU_FRAME_NONE && CurrentMenuPage->General_MenuFrameStyle != MENU_FRAME_NONE ){
+            X = OLED_UI_MenuFrame.CurrentArea.X - 1;
+            Y = OLED_UI_MenuFrame.CurrentArea.Y - 1;
+            Width = OLED_UI_MenuFrame.CurrentArea.Width + 2;
+            Height = OLED_UI_MenuFrame.CurrentArea.Height + 2;
+        }else{
+            X = OLED_UI_MenuFrame.CurrentArea.X;
+            Y = OLED_UI_MenuFrame.CurrentArea.Y;
+            Width = OLED_UI_MenuFrame.CurrentArea.Width + Offset;
+            Height = OLED_UI_MenuFrame.CurrentArea.Height;
+        }
+
+        
+        
+        //清除当前菜单页面
+        OLED_UI_ClearAreaWithFadeOut(X,Y,Width,Height);
+        // 跳转到父菜单
+        CurrentMenuPage = CurrentMenuPage->General_ParentMenuPage;
+        // 将滚动偏移值归零
+        OLED_UI_SetLineSplitZero();
+        if(CurrentMenuPage->_IfInit == false){
+            OLED_UI_CurrentMenuPageInit();
+        }else{
+            OLED_UI_CurrentMenuPageBackUp();
         }
     }
 
-    return StringLength;
 }
 /**
  * @brief 获取窗口数据情况
- * @param *int16_tdata 指针，用于存储int16_t数据
- * @param *float_tdata 指针，用于存储float数据
+ * @param window
  * @return 浮点值为返回 WINDOW_DATA_STYLE_FLOAT ，int16_t值为返回 WINDOW_DATA_STYLE_INT ，空指针返回 WINDOW_DATA_STYLE_NONE
  */
-int8_t GetWindowDataStyle(int16_t *int16_tdata,float *float_tdata){
+int8_t OLED_UI_GetWindowProbDataStyle(MenuWindow* window){
+
 	//保护避免访问非法内存
-	if(CurrentWindow == NULL){
-		return -1;
+	if(window == NULL){
+		return WINDOW_DATA_STYLE_NONE;
 	}
-	if(int16_tdata != NULL){
-		return WINDOW_DATA_STYLE_INT;
-	}else if(float_tdata != NULL){
+	// 如果窗口数据类型为int8_t
+	if(window->Prob_Data_Int_8_t != NULL){
+		return WINDOW_DATA_STYLE_INT8;
+		// 如果窗口数据类型为int16_t
+	}else if(window->Prob_Data_Int_16_t != NULL){
+		return WINDOW_DATA_STYLE_INT16;
+		// 如果窗口数据类型为int32_t
+	}else if(window->Prob_Data_Int_32_t != NULL){
+		return WINDOW_DATA_STYLE_INT32;
+		// 如果窗口数据类型为int64_t
+	}else if(window->Prob_Data_Int_64_t != NULL){
+		return WINDOW_DATA_STYLE_INT64;
+		// 如果窗口数据类型为float
+	}else if(window->Prob_Data_Float != NULL){
 		return WINDOW_DATA_STYLE_FLOAT;
 	}else{
 		return WINDOW_DATA_STYLE_NONE;
 	}
 }
+/**
+ * @brief 主循环中处理输入
+ * @param 无
+ * @note 主循环中通过中断当中的按键状态处理结果来执行一些任务
+ * @return 无
+ */
+void OLED_UI_HandleInput_MainLoop(void){
+    // 禁止定时器中断,放置变量赋值的时候被定时器中断打断
+    OLED_UI_TimerDisable();
+    int8_t enter_states = OLED_UI_Enter.Status;
+    int8_t back_states = OLED_UI_Back.Status;
+    int8_t up_states = OLED_UI_Up.Status;
+    int8_t down_states = OLED_UI_Down.Status;
+    int8_t encoder_states = OLED_UI_EncoderKey.Status;
+    // 获取长按上或下按键所得到的增量
+    OLED_UI_DeltaMenuID+=OLED_UI_UpDownLongPress.DeltaData;
+    OLED_UI_UpDownLongPress.DeltaData = 0;
+    // 启用定时器中断
+    OLED_UI_TimerEnable();
+    int16_t MaxMenuID;
+
+    
+    
+    
+    // 获取编码器旋转的增量值
+    OLED_UI_DeltaMenuID += OLED_UI_EncoderGet();
+
+    
+
+
+    // 确认按键任务处理
+    switch(enter_states)
+    {
+        case OLED_UI_KEY_CLICK:
+        /*============================单击按键处理逻辑==============================*/
+
+        if(OLED_UI_WindowStatus.SustainFlag == false){
+            OLED_UI_EnterTask();
+        }else{
+            OLED_UI_WindowStatus.Counter = 0;
+        }
+
+        /*========================================================================*/
+            break;
+        case OLED_UI_KEY_DOUBLE_CLICK:
+        /*============================双击按键处理逻辑==============================*/
+
+
+
+
+        /*========================================================================*/
+            break;
+        case OLED_UI_KEY_LONG_PRESS:
+        /*============================长按按键处理逻辑==============================*/
+
+
+
+
+        /*========================================================================*/
+            break;
+        case OLED_UI_KEY_NONE:
+        /*============================无操作的处理逻辑==============================*/
+
+
+
+
+        /*========================================================================*/
+            break;
+        default:
+            break;
+    }
+
+    // 取消按键任务处理
+    switch(back_states)
+    {
+        case OLED_UI_KEY_CLICK:
+        /*============================单击按键处理逻辑==============================*/
+        if(OLED_UI_WindowStatus.SustainFlag == false){
+            OLED_UI_BackTask();
+        }else{
+            OLED_UI_WindowStatus.Counter = CurrentWindow->General_StayTime;
+        }
+
+        /*========================================================================*/
+            break;
+        case OLED_UI_KEY_DOUBLE_CLICK:
+        /*============================双击按键处理逻辑==============================*/
+
+
+        
+
+        /*========================================================================*/
+            break;
+        case OLED_UI_KEY_LONG_PRESS:
+        /*============================长按按键处理逻辑==============================*/
+
+
+
+
+        /*========================================================================*/
+            break;
+        case OLED_UI_KEY_NONE:
+        /*============================无操作的处理逻辑==============================*/
+
+
+
+
+        /*========================================================================*/
+            break;
+        default:
+            break;
+    }
+
+    // 上按键任务处理
+    switch(up_states)
+    {
+        case OLED_UI_KEY_CLICK:
+        /*============================单击按键处理逻辑==============================*/
+
+        // 变化值自减1
+        OLED_UI_DeltaMenuID -= 1;
+
+
+        /*========================================================================*/
+            break;
+        case OLED_UI_KEY_DOUBLE_CLICK:
+        /*============================双击按键处理逻辑==============================*/
+
+        
+
+
+        /*========================================================================*/
+            break;
+        case OLED_UI_KEY_LONG_PRESS:
+        /*============================长按按键处理逻辑==============================*/
+
+
+
+
+        /*========================================================================*/
+            break;
+        case OLED_UI_KEY_NONE:
+        /*============================无操作的处理逻辑==============================*/
+
+
+
+
+        /*========================================================================*/
+            break;
+        default:
+            break;
+    }
+
+    // 下按键任务处理
+    switch(down_states)
+    {
+        case OLED_UI_KEY_CLICK:
+        /*============================单击按键处理逻辑==============================*/
+
+        // 变化值自增1
+        OLED_UI_DeltaMenuID += 1;
+
+
+        /*========================================================================*/
+            break;
+        case OLED_UI_KEY_DOUBLE_CLICK:
+        /*============================双击按键处理逻辑==============================*/
+
+        
+
+
+        /*========================================================================*/
+            break;
+        case OLED_UI_KEY_LONG_PRESS:
+        /*============================长按按键处理逻辑==============================*/
+
+        
+
+
+        /*========================================================================*/
+            break;
+        case OLED_UI_KEY_NONE:
+        /*============================无操作的处理逻辑==============================*/
+
+
+
+
+        /*========================================================================*/
+            break;
+        default:
+            break;
+    }
+
+    // 编码器按键任务处理
+    switch(encoder_states)
+    {
+        case OLED_UI_KEY_CLICK:
+        /*============================单击按键处理逻辑==============================*/
+        if(OLED_UI_WindowStatus.SustainFlag == false){
+
+            OLED_UI_EnterTask();
+        }else{
+            OLED_UI_WindowStatus.Counter = 0;
+        }
+
+        
+
+
+        /*========================================================================*/
+            break;
+        case OLED_UI_KEY_DOUBLE_CLICK:
+        /*============================双击按键处理逻辑==============================*/
+
+
+
+
+        /*========================================================================*/
+            break;
+        case OLED_UI_KEY_LONG_PRESS:
+        /*============================长按按键处理逻辑==============================*/
+
+        if(OLED_UI_WindowStatus.SustainFlag == false){
+            OLED_UI_BackTask();
+        }else{
+            OLED_UI_WindowStatus.Counter = CurrentWindow->General_StayTime;
+        }
+        
+
+        /*========================================================================*/
+            break;
+        case OLED_UI_KEY_NONE:
+        /*============================无操作的处理逻辑==============================*/
+
+
+
+
+        /*========================================================================*/
+            break;
+        default:
+            break;
+    }
+    
+    // 如果当前有窗口事件发生，则将获取到的输入用于处理窗口事件
+    if(OLED_UI_WindowStatus.SustainFlag != false){
+        // 获取窗口数据类型
+        
+        int8_t DataStyle = OLED_UI_GetWindowProbDataStyle(CurrentWindow);
+        if(DataStyle != WINDOW_DATA_STYLE_NONE)
+        {
+            switch (DataStyle) {
+                case WINDOW_DATA_STYLE_FLOAT:
+                    *CurrentWindow->Prob_Data_Float += (OLED_UI_DeltaMenuID * CurrentWindow->Prob_DataStep);
+			        if(*CurrentWindow->Prob_Data_Float <= CurrentWindow->Prob_MinData) {*CurrentWindow->Prob_Data_Float = CurrentWindow->Prob_MinData;}
+			        if(*CurrentWindow->Prob_Data_Float >= CurrentWindow->Prob_MaxData) {*CurrentWindow->Prob_Data_Float = CurrentWindow->Prob_MaxData;}
+                    break;
+                case WINDOW_DATA_STYLE_INT8:
+					*CurrentWindow->Prob_Data_Int_8_t += (OLED_UI_DeltaMenuID * CurrentWindow->Prob_DataStep);
+					if(*CurrentWindow->Prob_Data_Int_8_t <= CurrentWindow->Prob_MinData) {*CurrentWindow->Prob_Data_Int_8_t = CurrentWindow->Prob_MinData;}
+					if(*CurrentWindow->Prob_Data_Int_8_t >= CurrentWindow->Prob_MaxData) {*CurrentWindow->Prob_Data_Int_8_t = CurrentWindow->Prob_MaxData;}
+					break;
+				case WINDOW_DATA_STYLE_INT16:
+					
+					*CurrentWindow->Prob_Data_Int_16_t += (OLED_UI_DeltaMenuID * CurrentWindow->Prob_DataStep);
+					if(*CurrentWindow->Prob_Data_Int_16_t <= CurrentWindow->Prob_MinData) {*CurrentWindow->Prob_Data_Int_16_t = CurrentWindow->Prob_MinData;}
+					if(*CurrentWindow->Prob_Data_Int_16_t >= CurrentWindow->Prob_MaxData) {*CurrentWindow->Prob_Data_Int_16_t = CurrentWindow->Prob_MaxData;}
+					break;
+				case WINDOW_DATA_STYLE_INT32:
+					*CurrentWindow->Prob_Data_Int_32_t += (OLED_UI_DeltaMenuID * CurrentWindow->Prob_DataStep);
+					if(*CurrentWindow->Prob_Data_Int_32_t <= CurrentWindow->Prob_MinData) {*CurrentWindow->Prob_Data_Int_32_t = CurrentWindow->Prob_MinData;}
+					if(*CurrentWindow->Prob_Data_Int_32_t >= CurrentWindow->Prob_MaxData) {*CurrentWindow->Prob_Data_Int_32_t = CurrentWindow->Prob_MaxData;}
+					break;
+				case WINDOW_DATA_STYLE_INT64:
+					*CurrentWindow->Prob_Data_Int_64_t += (OLED_UI_DeltaMenuID * CurrentWindow->Prob_DataStep);
+					if(*CurrentWindow->Prob_Data_Int_64_t <= CurrentWindow->Prob_MinData) {*CurrentWindow->Prob_Data_Int_64_t = CurrentWindow->Prob_MinData;}
+					if(*CurrentWindow->Prob_Data_Int_64_t >= CurrentWindow->Prob_MaxData) {*CurrentWindow->Prob_Data_Int_64_t = CurrentWindow->Prob_MaxData;}
+					break;
+                
+
+            }
+            if(OLED_UI_DeltaMenuID != 0){
+                OLED_UI_WindowStatus.Counter = 0;
+            }
+        }
+        OLED_UI_DeltaMenuID = 0;
+    }
+
+
+    // 获取最大菜单id
+    MaxMenuID = OLED_UI_GetMaxMenuItemNum();
+
+
+    // 确保 ActiveMenuID 在合法范围内
+    // 给DeltaMenuID限幅，防止超出菜单范围
+    if(CurrentMenuPage->_ActiveMenuID + OLED_UI_DeltaMenuID < 0)
+    {
+        OLED_UI_DeltaMenuID = -CurrentMenuPage->_ActiveMenuID;
+    }
+    if(CurrentMenuPage->_ActiveMenuID + OLED_UI_DeltaMenuID > MaxMenuID)
+    {
+        OLED_UI_DeltaMenuID = MaxMenuID - CurrentMenuPage->_ActiveMenuID;
+    }
+
+
+
+    
+
+
+    // 复位按键状态
+    OLED_UI_Enter.Status = OLED_UI_KEY_NONE;
+    OLED_UI_Back.Status = OLED_UI_KEY_NONE;
+    OLED_UI_Up.Status = OLED_UI_KEY_NONE;
+    OLED_UI_Down.Status = OLED_UI_KEY_NONE;
+    OLED_UI_EncoderKey.Status = OLED_UI_KEY_NONE;
+
+}
+
+/**
+ * @brief 设置菜单起始区域的目标值
+ * @param 无
+ * @note 设置菜单起始区域的目标值，用于动画效果
+ * @return 无
+ */
+void OLED_UI_SetTargetMenuStartPoint(void){
+    if(OLED_UI_DeltaMenuID == 0){
+        return;
+    }else{
+        if(CurrentMenuPage->General_MenuType == MENU_TYPE_TILES){
+            // 这句代码的作用是在磁贴菜单界面每次操作的时候滚动偏移置零
+            OLED_UI_SetLineSplitZero();
+        }
+    }
+    if(OLED_UI_DeltaMenuID < 0 ){
+        
+        for(int i = 0; i < -OLED_UI_DeltaMenuID; i++){
+            if(CurrentMenuPage->_Slot == 0 && CurrentMenuPage->_ActiveMenuID !=0){
+                OLED_UI_MenuItemsMovePlus();
+
+            }
+            //如果光标还没有到达最顶部的槽位，那么就向上移动槽位
+			if(CurrentMenuPage->_Slot > 0){
+				CurrentMenuPage->_Slot--;
+			}
+            CurrentMenuPage->_ActiveMenuID--;
+        }
+    }else if(OLED_UI_DeltaMenuID >= 0){
+        for(int i = 0; i < OLED_UI_DeltaMenuID; i++){
+            if(CurrentMenuPage->_Slot == OLED_UI_GetMaxSlotNum()-1 && CurrentMenuPage->_ActiveMenuID != OLED_UI_GetMaxMenuItemNum()){
+                OLED_UI_MenuItemsMoveMinus();
+
+            }
+            //如果光标还没有到达最底部的槽位，那么就向下移动槽位
+			if(CurrentMenuPage->_Slot < OLED_UI_GetMaxSlotNum()-1){
+				CurrentMenuPage->_Slot++;
+			}
+            CurrentMenuPage->_ActiveMenuID++;
+        }
+    }
+    OLED_UI_DeltaMenuID = 0;
+
+
+
+}
+
+/**
+ * @brief 设置进度条宽度的目标值
+ * @param 无
+ * @note 设置进度条宽度的目标值，用于动画效果
+ * @return 无
+ */
+void OLED_UI_SetTargetProbWidth(void){
+    // 防止访问非法内存
+    if(CurrentWindow != NULL){
+        int8_t DataStyle = OLED_UI_GetWindowProbDataStyle(CurrentWindow);
+        // 如果当前窗口有进度条，则设置进度条宽度的目标值
+        if(DataStyle != WINDOW_DATA_STYLE_NONE){
+            switch (DataStyle) {
+				case WINDOW_DATA_STYLE_INT8:
+				
+					OLED_UI_ProbWidth.TargetDistance = ((*CurrentWindow->Prob_Data_Int_8_t - CurrentWindow->Prob_MinData)/(CurrentWindow->Prob_MaxData - CurrentWindow->Prob_MinData ))*	(OLED_UI_Window.CurrentArea.Width- 2*CurrentWindow->Prob_SideDistance - 4);
+					break;
+				case WINDOW_DATA_STYLE_INT16:
+					OLED_UI_ProbWidth.TargetDistance = ((*CurrentWindow->Prob_Data_Int_16_t - CurrentWindow->Prob_MinData)/(CurrentWindow->Prob_MaxData - CurrentWindow->Prob_MinData ))*	(OLED_UI_Window.CurrentArea.Width- 2*CurrentWindow->Prob_SideDistance - 4);
+
+					break;
+				case WINDOW_DATA_STYLE_INT32:
+					OLED_UI_ProbWidth.TargetDistance = ((*CurrentWindow->Prob_Data_Int_32_t - CurrentWindow->Prob_MinData)/(CurrentWindow->Prob_MaxData - CurrentWindow->Prob_MinData ))*	(OLED_UI_Window.CurrentArea.Width- 2*CurrentWindow->Prob_SideDistance - 4);
+					break;
+				case WINDOW_DATA_STYLE_INT64:
+				
+					OLED_UI_ProbWidth.TargetDistance = ((*CurrentWindow->Prob_Data_Int_64_t - CurrentWindow->Prob_MinData)/(CurrentWindow->Prob_MaxData - CurrentWindow->Prob_MinData ))*	(OLED_UI_Window.CurrentArea.Width- 2*CurrentWindow->Prob_SideDistance - 4);
+					break;
+                case WINDOW_DATA_STYLE_FLOAT:
+					OLED_UI_ProbWidth.TargetDistance = ((*CurrentWindow->Prob_Data_Float - CurrentWindow->Prob_MinData)/(CurrentWindow->Prob_MaxData - CurrentWindow->Prob_MinData ))*	(OLED_UI_Window.CurrentArea.Width- 2*CurrentWindow->Prob_SideDistance - 4);
+					break;
+				default:
+					break;
+					
+			}
+        }
+    }
+}
+
+/**
+ * @brief 打印字符串，并在需要滚动的时候滚动显示
+ * @note 如果字符串宽度超过了区域宽度，那么就滚动显示
+ * @return 无
+ */
+void OLED_UI_PrintStringScroll(
+    int16_t areaX,int16_t areaY,int16_t areaWidth,int16_t areaHeight,       //打印的区域
+    int16_t X, int16_t Y,                                              //打印的起始位置
+    int16_t compareWidth,                                               //比较的宽度
+    int8_t font,
+    const char* menuText,
+    float * slip,bool ifAnimationEnd)
+{
+
+    // 区域宽度和高度必须大于0
+    if(areaWidth <= 0 || areaHeight <= 0){return;}
+
+    // 获取字符串宽度
+    int16_t StringLength = OLED_UI_CalcStringWidth(font, menuText);
+
+    // 设置文本间隔
+    int16_t StrDis = compareWidth/3;
+
+    // 只有当文本宽度超过区域宽度时才滚动
+    if (StringLength > compareWidth)
+    {
+
+        // 重置滚动位置
+        if (*slip < -StringLength - StrDis) {
+            *slip = 0;
+        }
+        if(ifAnimationEnd){
+            // 更新滚动位置
+            *slip -= OLED_UI_LONG_MENU_SCROLL_PIXELS;
+        }
+        // 计算实际绘制位置
+        int16_t pos1 = X + (int16_t)*slip;
+        int16_t pos2 = X + (int16_t)*slip + StringLength + StrDis;
+
+        // 在区域内绘制两个字符串
+        OLED_PrintfArea(areaX, areaY, areaWidth, areaHeight, pos1, Y, font, menuText);
+        OLED_PrintfArea(areaX, areaY, areaWidth, areaHeight, pos2, Y, font, menuText);
+
+    } else {
+        // 直接绘制静态文本
+        OLED_PrintfArea(areaX, areaY, areaWidth, areaHeight, X, Y, font, menuText);
+        * slip = 0;
+    }
+
+}
+
+ 
+/**
+ * @brief 在屏幕上打印菜单项
+ * @param 无
+ * @note 在屏幕上打印菜单项，包括菜单项名称、菜单项值等。
+ * @return 无
+ */
+void OLED_UI_PrintMenuItems(void)
+{
+    // 获取菜单数量
+    int16_t MenuNum = OLED_UI_GetMaxMenuItemNum();
+
+    // 获取中文字体宽度
+    uint8_t ChineseFontWidth = OLED_GetFontWidth(CurrentMenuPage->General_FontSize,OLED_CHINESE);
+
+    // 获取ASCII字体宽度
+    uint8_t ASCIIFontWidth = OLED_GetFontWidth(CurrentMenuPage->General_FontSize,OLED_ASCII);
+
+    // 用于打印菜单的光标点为全局变量的当前点
+    OLED_UI_Point CursorPoint = OLED_UI_PageStartPoint.CurrentPoint;
+
+
+
+    // 如果当前菜单的类型是列表
+    if(CurrentMenuPage->General_MenuType == MENU_TYPE_LIST)
+    {
+        //行前缀宽度，默认为0
+		uint8_t LinePerfixWidth = 0;
+		//bool选框宽度，默认为0
+		uint8_t RadioCompensationWidth = 0;
+        //如果需要绘制行前缀
+		if(CurrentMenuPage->List_IfDrawLinePerfix == true){
+			//将行前缀宽度设置为ASCII字体宽度加LINEPERFIX_DISTANCE（与后方字符串的距离）
+			LinePerfixWidth = ASCIIFontWidth + LINEPERFIX_DISTANCE;
+		}
+        //打印菜单项
+		for(int16_t i = 0; i<=MenuNum;i++)
+        {
+            // 如果光标小于起始区域的Y坐标或者大于起始区域的结束Y坐标，则跳过该项以节省资源
+            if(CursorPoint.Y + CurrentMenuPage->General_FontSize < OLED_UI_MenuFrame.CurrentArea.Y || CursorPoint.Y > OLED_UI_MenuFrame.CurrentArea.Y + OLED_UI_MenuFrame.CurrentArea.Height){
+				CursorPoint.Y += (CurrentMenuPage->General_FontSize + OLED_UI_LineStep.CurrentDistance);
+				continue;
+			}
+            //记录此轮循环的字符串宽度
+			int16_t StringLength = OLED_UI_CalcStringWidth(CurrentMenuPage->General_FontSize,CurrentMenuPage->General_MenuItems[i].General_item_text);
+			//如果需要打印行前缀
+	        if(CurrentMenuPage->List_IfDrawLinePerfix == true){
+	        	const char* LinePerfixSymb = "";
+	        	//如果当前的菜单项有子菜单且没有回调函数，那么打印相应的符号
+	        	if(CurrentMenuPage->General_MenuItems[i].General_SubMenuPage != NULL && CurrentMenuPage->General_MenuItems[i].General_callback == NULL && CurrentMenuPage->General_MenuItems[i].List_BoolRadioBox == NULL){
+	        		LinePerfixSymb = SUBMENU_PREFIX;
+	        	}else//如果有回调函数
+	        	if(CurrentMenuPage->General_MenuItems[i].General_SubMenuPage == NULL && CurrentMenuPage->General_MenuItems[i].General_callback != NULL && CurrentMenuPage->General_MenuItems[i].List_BoolRadioBox == NULL){
+	        		LinePerfixSymb = FUNCTION_PREFIX;
+	        	}else
+	        	if(CurrentMenuPage->General_MenuItems[i].General_SubMenuPage == NULL && CurrentMenuPage->General_MenuItems[i].General_callback == NULL && CurrentMenuPage->General_MenuItems[i].List_BoolRadioBox != NULL)
+	        	{
+	        		LinePerfixSymb = RADIO_PREFIX;
+	        	}else{
+	        		LinePerfixSymb = NONE_PREFIX;
+	        	}
+	        	OLED_PrintfArea(OLED_UI_MenuFrame.CurrentArea.X,OLED_UI_MenuFrame.CurrentArea.Y,OLED_UI_MenuFrame.CurrentArea.Width - 6,OLED_UI_MenuFrame.CurrentArea.Height,CursorPoint.X,CursorPoint.Y,CurrentMenuPage->General_FontSize,LinePerfixSymb);
+	        }else{
+                LinePerfixWidth = 0;
+            }
+            //如果需要绘制单选框(即BoolRadioBox不为空)
+            if(CurrentMenuPage->General_MenuItems[i].List_BoolRadioBox != NULL){
+                RadioCompensationWidth = (ChineseFontWidth + 2);
+                const char* RadioBoxSymb = "";
+                if(*CurrentMenuPage->General_MenuItems[i].List_BoolRadioBox == true){
+                    RadioBoxSymb = "■";
+                }else{
+                    RadioBoxSymb = "□";
+                }
+                OLED_PrintfArea(//在限制的区域内打印文字
+                               //光标的起始x坐标加入行前缀宽度，这样可以自动留出打印行前缀的空间
+                               OLED_UI_MenuFrame.CurrentArea.X ,
+                               OLED_UI_MenuFrame.CurrentArea.Y,
+                               OLED_UI_MenuFrame.CurrentArea.Width - 6,
+                               OLED_UI_MenuFrame.CurrentArea.Height,
+                
+                               //打印文字的坐标
+                               CurrentMenuPage->General_StartPoint.X + OLED_UI_MenuFrame.CurrentArea.X + OLED_UI_MenuFrame.CurrentArea.Width - RadioCompensationWidth - 8 ,
+                               CursorPoint.Y,
+                               //打印文字的大小
+                               CurrentMenuPage->General_FontSize,
+                               //打印文字的内容
+                               RadioBoxSymb);
+            }else{
+                RadioCompensationWidth = 0;
+            }
+
+            // 限制显示区域的X坐标：如果开始打印的x坐标小于当前菜单区域的x坐标，那么从页面开始的x坐标开始打印，否则从开始打印的x坐标开始打印
+            int16_t StringX = (CursorPoint.X + LinePerfixWidth < OLED_UI_MenuFrame.CurrentArea.X) ? OLED_UI_MenuFrame.CurrentArea.X : CursorPoint.X + LinePerfixWidth;
+
+            int16_t StringY = OLED_UI_MenuFrame.CurrentArea.Y;
+
+            // 显示区域的限制宽度：如果开始打印的x坐标小于当前菜单区域的x坐标，那么实际的宽度应该等于【开始打印的x坐标加【当前页面起始x坐坐标加上当前页面宽度减去5减去2】减去当前页面起始x坐标】
+            // int16_t StringWidth = OLED_UI_MenuFrame.CurrentArea.Width + OLED_UI_MenuFrame.CurrentArea.X - StringX - RadioCompensationWidth - 8;
+            int16_t StringWidth = (CursorPoint.X + LinePerfixWidth < OLED_UI_MenuFrame.CurrentArea.X) ? CursorPoint.X + LinePerfixWidth + OLED_UI_MenuFrame.CurrentArea.Width - 7 - RadioCompensationWidth - OLED_UI_MenuFrame.CurrentArea.X:OLED_UI_MenuFrame.CurrentArea.Width + OLED_UI_MenuFrame.CurrentArea.X - StringX - RadioCompensationWidth - 8;
+            int16_t StringHeight = OLED_UI_MenuFrame.CurrentArea.Height;
+            int16_t StringStartX = CursorPoint.X + LinePerfixWidth;
+            int16_t StringStartY = CursorPoint.Y;
+            int16_t CompareWidth = OLED_UI_MenuFrame.TargetArea.Width - 6 - LinePerfixWidth - CurrentMenuPage->General_StartPoint.X  -2 - RadioCompensationWidth;
+
+            
+            OLED_UI_PrintStringScroll(
+                //限制的区域
+                StringX,
+                StringY,
+                StringWidth,
+                StringHeight,
+
+                StringStartX,
+                StringStartY,
+
+                CompareWidth,
+
+                CurrentMenuPage->General_FontSize,
+                CurrentMenuPage->General_MenuItems[i].General_item_text,
+                &CurrentMenuPage->General_MenuItems[i]._LineSlip,
+                OLED_UI_IfAnimationEnd(ANIM_MENU));
+
+
+            CursorPoint.Y += (CurrentMenuPage->General_FontSize + OLED_UI_LineStep.CurrentDistance);
+        }
+
+        
+
+        
+    }
+    if(CurrentMenuPage->General_MenuType == MENU_TYPE_TILES){
+        //记录此轮循环的字符串宽度
+		int16_t StringLength = OLED_UI_CalcStringWidth(CurrentMenuPage->General_FontSize,CurrentMenuPage->General_MenuItems[CurrentMenuPage->_ActiveMenuID].General_item_text);
+
+        //打印菜单项
+		for(int16_t i = 0; i<=MenuNum;i++)
+        {
+           
+            OLED_ShowImageArea(
+                OLED_UI_MenuFrame.CurrentArea.X, 
+                OLED_UI_MenuFrame.CurrentArea.Y,
+                OLED_UI_MenuFrame.CurrentArea.Width, 
+                OLED_UI_MenuFrame.CurrentArea.Height,
+                ceil(CursorPoint.X),
+                CursorPoint.Y,
+                CurrentMenuPage->Tiles_TileWidth,
+                CurrentMenuPage->Tiles_TileHeight,
+                CurrentMenuPage->General_MenuItems[i].Tiles_Icon != NULL ? CurrentMenuPage->General_MenuItems[i].Tiles_Icon : UnKnown);
+
+            CursorPoint.X += (CurrentMenuPage->Tiles_TileWidth + OLED_UI_LineStep.CurrentDistance);
+
+            
+            
+        }
+        
+        OLED_UI_PrintStringScroll(
+            //限制的区域
+            OLED_UI_MenuFrame.CurrentArea.X, 
+            OLED_UI_MenuFrame.CurrentArea.Y,
+            OLED_UI_MenuFrame.CurrentArea.Width, 
+            OLED_UI_MenuFrame.CurrentArea.Height,
+
+            StringLength < OLED_UI_MenuFrame.TargetArea.Width ? OLED_UI_MenuFrame.CurrentArea.X + OLED_UI_MenuFrame.CurrentArea.Width/2 -StringLength/2 : OLED_UI_MenuFrame.CurrentArea.X + 5,
+            // OLED_UI_MenuFrame.CurrentArea.Y + CurrentMenuPage->Tiles_FontTopDistance,
+            OLED_UI_Tiles_FontTopDistance.CurrentDistance,
+            OLED_UI_MenuFrame.CurrentArea.Width,
+
+            CurrentMenuPage->General_FontSize,
+            CurrentMenuPage->General_MenuItems[CurrentMenuPage->_ActiveMenuID].General_item_text,
+            &CurrentMenuPage->General_MenuItems[CurrentMenuPage->_ActiveMenuID]._LineSlip,
+            OLED_UI_IfAnimationEnd(ANIM_MENU));
+   
+    }
+    // 绘制菜单边框
+    if(CurrentMenuPage->General_MenuFrameStyle == MENU_FRAME_RECTANGLE){
+        OLED_DrawRectangle(OLED_UI_MenuFrame.CurrentArea.X-1, OLED_UI_MenuFrame.CurrentArea.Y-1,OLED_UI_MenuFrame.CurrentArea.Width+2, OLED_UI_MenuFrame.CurrentArea.Height+2, OLED_UNFILLED);
+    }else if(CurrentMenuPage->General_MenuFrameStyle == MENU_FRAME_ROUNDRECTANGLE){
+        OLED_DrawRoundedRectangle(OLED_UI_MenuFrame.CurrentArea.X-1, OLED_UI_MenuFrame.CurrentArea.Y-1, OLED_UI_MenuFrame.CurrentArea.Width+2, OLED_UI_MenuFrame.CurrentArea.Height+2,3, OLED_UNFILLED);
+    }
+    // 绘制光标
+    OLED_UI_ReverseCoordinate(OLED_UI_Cursor.CurrentArea.X, OLED_UI_Cursor.CurrentArea.Y, OLED_UI_Cursor.CurrentArea.Width, OLED_UI_Cursor.CurrentArea.Height, CurrentMenuPage->General_CursorStyle);
+    //绘制滚动条与其中心线
+    if(CurrentMenuPage->General_MenuType == MENU_TYPE_LIST){
+
+        OLED_DrawRectangle(OLED_UI_MenuFrame.CurrentArea.X + OLED_UI_MenuFrame.CurrentArea.Width - 5,OLED_UI_MenuFrame.CurrentArea.Y,5,(OLED_UI_ScrollBarHeight.CurrentDistance > OLED_UI_MenuFrame.CurrentArea.Height) ?OLED_UI_MenuFrame.CurrentArea.Height:OLED_UI_ScrollBarHeight.CurrentDistance,OLED_FILLED);
+
+        OLED_DrawLine(OLED_UI_MenuFrame.CurrentArea.X + OLED_UI_MenuFrame.CurrentArea.Width - 3,OLED_UI_MenuFrame.CurrentArea.Y,    OLED_UI_MenuFrame.CurrentArea.X + OLED_UI_MenuFrame.CurrentArea.Width-3,OLED_UI_MenuFrame.CurrentArea.Height + OLED_UI_MenuFrame.   CurrentArea.Y-1);
+    }else if(CurrentMenuPage->General_MenuType == MENU_TYPE_TILES){
+        OLED_DrawRectangle(OLED_UI_ScrollBarStartPoint.CurrentPoint.X,OLED_UI_ScrollBarStartPoint.CurrentPoint.Y,(OLED_UI_ScrollBarHeight.    CurrentDistance > OLED_UI_MenuFrame.CurrentArea.Width) ? OLED_UI_MenuFrame.CurrentArea.Width:OLED_UI_ScrollBarHeight.  CurrentDistance,5,OLED_FILLED);
+        OLED_DrawLine(
+            OLED_UI_ScrollBarStartPoint.CurrentPoint.X,
+            OLED_UI_ScrollBarStartPoint.CurrentPoint.Y + 2,
+            OLED_UI_ScrollBarStartPoint.CurrentPoint.X + OLED_UI_MenuFrame.CurrentArea.Width - 1,
+            OLED_UI_ScrollBarStartPoint.CurrentPoint.Y + 2
+        );
+    }
+    if(CurrentMenuPage->General_ShowAuxiliaryFunction != NULL){
+        CurrentMenuPage->General_ShowAuxiliaryFunction();
+    }
+    
+
+}
+
+/**
+ * @brief 设置UI元素位置
+ * @param 无
+ * @note 设置UI元素位置，包括菜单、按钮、文本框、进度条等。
+ * @return 无
+ */
+void OLED_UI_SetElementLocation(void)
+{
+    // 设置光标区域
+    OLED_UI_SetTargetCursorArea();
+
+    // 设置滚动条高度
+    OLED_UI_SetTargetScrollBarHeight();
+
+    // 设置字体顶部距离[磁贴专有]
+    OLED_UI_SetTiles_FontTopDistance();
+
+    // 设置滚动条起始位置
+    OLED_UI_SetTargetScrollBarStartPoint();
+
+    // 设置菜单区域
+    OLED_UI_SetTargetMenuArea();
+
+    // 设置菜单项开始位置
+    OLED_UI_SetTargetMenuStartPoint();
+
+    // 设置进度条长度
+    OLED_UI_SetTargetProbWidth();
+
+    // 计算动画：行间距或磁贴间距
+    OLED_UI_ChangeDistance(&OLED_UI_LineStep);
+
+    // 计算动画：字体顶部距离[磁贴专有]
+    OLED_UI_ChangeDistance(&OLED_UI_Tiles_FontTopDistance);
+
+    // 计算动画：滚动条高度
+    OLED_UI_ChangeDistance(&OLED_UI_ScrollBarHeight);
+
+    // 计算动画：滚动条起始位置
+    OLED_UI_ChangePoint(&OLED_UI_ScrollBarStartPoint);
+
+    // 计算动画：菜单项开始位置
+    OLED_UI_ChangePoint(&OLED_UI_PageStartPoint);
+
+    // 计算动画：菜单区域
+    OLED_UI_ChangeArea(&OLED_UI_MenuFrame);
+
+    // 计算动画：改变光标区域
+    OLED_UI_ChangeArea(&OLED_UI_Cursor);
+
+    // 计算动画：改变窗口区域
+    OLED_UI_ChangeArea(&OLED_UI_Window);
+
+    // 计算动画：改变进度条长度
+    OLED_UI_ChangeDistance(&OLED_UI_ProbWidth);
+}
+
+
+
+
+/**
+ * @brief 创建窗口
+ * @param window 窗口结构体指针，用于存储用户创建的窗口信息
+ * @note 创建窗口
+ */
+void OLED_UI_CreateWindow(MenuWindow* window){
+    // 如果当前窗口为空
+    if(CurrentWindow == NULL){
+        // 将偏移值置零
+        window->_LineSlip = 0;
+    }
+    //将窗口标志位设置为true，表示开始窗口效果
+	OLED_UI_WindowStatus.SustainFlag = true;
+    //重置窗口效果时间计数器
+	OLED_UI_WindowStatus.Counter = 0;
+
+    // 初始化窗口的目标大小与位置
+    OLED_UI_Window.TargetArea.X = (OLED_WIDTH - window->General_Width)/2;
+    OLED_UI_Window.TargetArea.Y = (OLED_HEIGHT - window->General_Height)/2;
+    OLED_UI_Window.TargetArea.Width = window->General_Width;
+    OLED_UI_Window.TargetArea.Height = window->General_Height;
+
+    OLED_UI_Window.CurrentArea.X = (OLED_WIDTH - window->General_Width)/2;
+    OLED_UI_Window.CurrentArea.Y = -window->General_Height - 1;
+    OLED_UI_Window.CurrentArea.Width = window->General_Width;
+    OLED_UI_Window.CurrentArea.Height = window->General_Height;
+    //将当前窗口指针指向window
+	CurrentWindow = window;
+}
+
+
+
+/**
+ * @brief 绘制进度条
+ * @param X 进度条起始x坐标
+ * @param Y 进度条起始y坐标
+ * @param Width 进度条宽度
+ * @param Height 进度条高度
+ * @param Percentage 进度百分比,0-1
+ * @note 绘制进度条
+ */
+void OLED_UI_DrawProgressBar(int16_t X,int16_t Y,int16_t Width,int16_t Height,float Percentage)
+{
+    if(Percentage < 0){
+        Percentage = 0;
+    }else if(Percentage > 1){
+        Percentage = 1;
+    }
+    OLED_DrawRoundedRectangle(X,Y,Width,Height,2,OLED_UNFILLED);
+    OLED_DrawRectangle(X+2,Y+2,(Width-4)*Percentage,Height-4,OLED_FILLED);
+}
 
 /**
  * @brief 绘制窗口
  * @param 无
- * @return 无
+ * @note 绘制窗口
  */
-void OLED_DrawWindow(void){
-	//如果窗口标志位没有被置位，则不进行窗口效果，将窗口的目标位置置位屏幕外部
-	if(OLED_SustainCounter.SustainFlag == false){
-		OLED_UI_Window.TargetArea.Height = 30;
-		OLED_UI_Window.TargetArea.Width = 60;
-		OLED_UI_Window.TargetArea.X = (OLED_WIDTH - 60)/2;	
-		OLED_UI_Window.TargetArea.Y = -40;
+void OLED_UI_DrawWindow(void)
+{
+    // 如果当前窗口为空，则直接返回
+    if(CurrentWindow == NULL){
+        // OLED_UI_WindowStatus.SustainFlag = false;
+        return;
+    }
+    //如果窗口标志位没有被置位，则不进行窗口效果，将窗口的目标位置置位屏幕外部
+	if(OLED_UI_WindowStatus.SustainFlag == false){
+		// OLED_UI_Window.TargetArea.Height = OLED_UI_WINDOW_FADE_HEIGHT;
+		// OLED_UI_Window.TargetArea.Width = OLED_UI_WINDOW_FADE_WIDTH;
+		// OLED_UI_Window.TargetArea.X = OLED_UI_WINDOW_FADE_X;	
+		// OLED_UI_Window.TargetArea.Y = OLED_UI_WINDOW_FADE_Y;
+        OLED_UI_Window.TargetArea.X = (OLED_WIDTH - CurrentWindow->General_Width)/2;
+        OLED_UI_Window.TargetArea.Y = -CurrentWindow->General_Height - 10;
+        OLED_UI_Window.TargetArea.Width = CurrentWindow->General_Width;
+        OLED_UI_Window.TargetArea.Height = CurrentWindow->General_Height;
 	}
-	if(CurrentWindow == NULL){
-		return;
-	}
-	OLED_Font ChineseFont = GetOLED_Font(CurrentWindow->Text_FontSize,CHINESE),ASCIIFont = GetOLED_Font(CurrentWindow->Text_FontSize,ASCII);
-
-	
-
-	//如果窗口动画还没有退出屏幕，则绘制窗口
-	if(OLED_SustainCounter.SustainFlag == true || (OLED_UI_Window.CurrentArea.Height != 30 && OLED_UI_Window.CurrentArea.Width != 60 && OLED_UI_Window.CurrentArea.Y != -40)){
-		//通过宏判断是否需要绘制圆角矩形
-		if(CurrentWindow->General_WindowType == WINDOW_RECTANGLE){
+    
+    // 如果计时时间到了，那么将标志位清零，计数器清零
+    if(OLED_UI_WindowStatus.Counter > CurrentWindow->General_StayTime/OLED_UI_INTERRUPT_TIME)
+    {
+        OLED_UI_WindowStatus.SustainFlag = false;
+        OLED_UI_WindowStatus.Counter = 0;
+    }
+    
+    //如果窗口动画还没有退出屏幕，则绘制窗口
+	// if(OLED_UI_Window.CurrentArea.Height != CurrentWindow->General_Height || OLED_UI_Window.CurrentArea.Width != CurrentWindow->General_Width || OLED_UI_Window.CurrentArea.Y != -CurrentWindow->General_Height - 10 || OLED_UI_Window.CurrentArea.X != (OLED_WIDTH - CurrentWindow->General_Width)/2){
+    if(OLED_UI_Window.CurrentArea.Y + OLED_UI_Window.CurrentArea.Height > 0 || OLED_UI_WindowStatus.SustainFlag == true){
+        // 判断指针的数据类型
+        int8_t DataStyle = OLED_UI_GetWindowProbDataStyle(CurrentWindow);
+        int16_t DataLength = 0;
+        int16_t DataPerfixWidth = 0;
+		//绘制边框
+		if(CurrentWindow->General_FrameStyle != WINDOW_FRAME_ROUNDRECTANGLE){
 			OLED_DrawRectangle(OLED_UI_Window.CurrentArea.X - 1,OLED_UI_Window.CurrentArea.Y - 1,OLED_UI_Window.CurrentArea.Width + 2,OLED_UI_Window.CurrentArea.Height + 2,OLED_UNFILLED);
 			OLED_ClearArea(OLED_UI_Window.CurrentArea.X,OLED_UI_Window.CurrentArea.Y,OLED_UI_Window.CurrentArea.Width,OLED_UI_Window.CurrentArea.Height);
 		}else{
 			OLED_DrawRoundedRectangle(OLED_UI_Window.CurrentArea.X - 1,OLED_UI_Window.CurrentArea.Y - 1,OLED_UI_Window.CurrentArea.Width + 2,OLED_UI_Window.CurrentArea.Height + 2,2,OLED_UNFILLED);
 			OLED_ClearArea(OLED_UI_Window.CurrentArea.X,OLED_UI_Window.CurrentArea.Y,OLED_UI_Window.CurrentArea.Width,OLED_UI_Window.CurrentArea.Height);
 		}
-		//显示文字
-		/**
-		 * 限制显示的区域：
-		 * X：当前窗口区域的起始点X + 此窗口设置的字体左侧间距
-		 * Y： 当前窗口区域的起始点Y + 字体顶部间距
-		 * Width：当前窗口宽度减去 2*文字边距 减去 数据的宽度 减去数据和文字的距离WINDOW_DATA_TEXT_DISTANCE
-		 * Height：字符串高度
-		 * 显示文字的起始点是：
-		 * X： 当前窗口区域的起始点X + 此窗口设置的字体左侧间距
-		 * Y： 当前窗口区域的起始点Y + 字体顶部间距
-		 * Width：字符串宽度
-		 * Height：字符串高度
-		 * */
-        // 先计算不包含数据宽度的字符串宽度作为默认宽度
-		int16_t MaxLength  = OLED_UI_Window.CurrentArea.Width - 2*CurrentWindow->Text_FontSideDistance - WINDOW_DATA_TEXT_DISTANCE;
-		int16_t DataLength = 0;
-		//计算数据类型
-		int8_t DataStyle = GetWindowDataStyle(CurrentWindow->Prob_Data_Int,CurrentWindow->Prob_Data_Float);
-		//如果进度条数据不为空，则说明用户设置了进度条，则显示进度条
-		//如果数据指针不为空
-		if(DataStyle != WINDOW_DATA_STYLE_NONE ){
-			//如果数据类型为int16_t
-			if (DataStyle == WINDOW_DATA_STYLE_INT)
-			{
-				//计算字符串被限制的最大宽度
-				MaxLength = OLED_UI_Window.CurrentArea.Width - 2*CurrentWindow->Text_FontSideDistance - CalcStringWidth(ChineseFont,ASCIIFont,"%3d",*CurrentWindow->Prob_Data_Int)- WINDOW_DATA_TEXT_DISTANCE;
-				//计算数据所占的宽度
-				DataLength = CalcStringWidth(ChineseFont,ASCIIFont,"%3d",*CurrentWindow->Prob_Data_Int);
-				//显示数据
-				OLED_PrintfMixArea(
-					//区域限制
-					OLED_UI_Window.CurrentArea.X,
-					OLED_UI_Window.CurrentArea.Y,
-					OLED_UI_Window.CurrentArea.Width,
-					OLED_UI_Window.CurrentArea.Height,
-					OLED_UI_Window.CurrentArea.X + CurrentWindow->General_Width - 1 - CurrentWindow->Text_FontSideDistance - DataLength,
-					OLED_UI_Window.CurrentArea.Y + CurrentWindow->Text_FontTopDistance,
-					ChineseFont,ASCIIFont,
-					"%3d",*CurrentWindow->Prob_Data_Int);
+        // 如果指针不为空
+        if(DataStyle != WINDOW_DATA_STYLE_NONE ){
+            DataPerfixWidth = OLED_UI_WINDOW_DATA_GAP;
+            switch (DataStyle) {
+                case WINDOW_DATA_STYLE_INT8:
+                    DataLength = OLED_UI_CalcStringWidth(CurrentWindow->Prob_FontSize,"%d",*CurrentWindow->Prob_Data_Int_8_t);
+                    OLED_PrintfArea(
+                        //限制区域
+                        OLED_UI_Window.CurrentArea.X,
+						OLED_UI_Window.CurrentArea.Y,
+						OLED_UI_Window.CurrentArea.Width,
+						OLED_UI_Window.CurrentArea.Height,
 
-			}else{//否则默认认为是浮点型数据
+                        OLED_UI_Window.CurrentArea.X + OLED_UI_Window.CurrentArea.Width - 1 - CurrentWindow->Title_FontSideDistance - DataLength,
+						OLED_UI_Window.CurrentArea.Y + CurrentWindow->Title_FontTopDistance,
+                        CurrentWindow->Prob_FontSize,
+                        "%d",
+                        *CurrentWindow->Prob_Data_Int_8_t
+
+                    );
+                    break;
+                case WINDOW_DATA_STYLE_INT16:
+                    DataLength = OLED_UI_CalcStringWidth(CurrentWindow->Prob_FontSize,"%d",*CurrentWindow->Prob_Data_Int_16_t);
+                    OLED_PrintfArea(
+                        //限制区域
+                        OLED_UI_Window.CurrentArea.X,
+						OLED_UI_Window.CurrentArea.Y,
+						OLED_UI_Window.CurrentArea.Width,
+						OLED_UI_Window.CurrentArea.Height,
+
+                        OLED_UI_Window.CurrentArea.X + OLED_UI_Window.CurrentArea.Width - 1 - CurrentWindow->Title_FontSideDistance - DataLength,
+						OLED_UI_Window.CurrentArea.Y + CurrentWindow->Title_FontTopDistance,
+                        CurrentWindow->Prob_FontSize,
+                        "%d",
+                        *CurrentWindow->Prob_Data_Int_16_t
+
+                    );
+                    break;
+                case WINDOW_DATA_STYLE_INT32:
+                    DataLength = OLED_UI_CalcStringWidth(CurrentWindow->Prob_FontSize,"%d",*CurrentWindow->Prob_Data_Int_32_t);
+                    OLED_PrintfArea(
+                        //限制区域
+                        OLED_UI_Window.CurrentArea.X,
+                        OLED_UI_Window.CurrentArea.Y,
+                        OLED_UI_Window.CurrentArea.Width,
+                        OLED_UI_Window.CurrentArea.Height,
+
+                        OLED_UI_Window.CurrentArea.X + OLED_UI_Window.CurrentArea.Width - 1 - CurrentWindow->Title_FontSideDistance - DataLength,
+                        OLED_UI_Window.CurrentArea.Y + CurrentWindow->Title_FontTopDistance,
+                        CurrentWindow->Prob_FontSize,
+                        "%d",
+                        *CurrentWindow->Prob_Data_Int_32_t
+
+                    );
+                    break;
+                case WINDOW_DATA_STYLE_INT64:
+                    DataLength = OLED_UI_CalcStringWidth(CurrentWindow->Prob_FontSize,"%d",*CurrentWindow->Prob_Data_Int_64_t);
+                    OLED_PrintfArea(
+                        //限制区域
+                        OLED_UI_Window.CurrentArea.X,
+                        OLED_UI_Window.CurrentArea.Y,
+                        OLED_UI_Window.CurrentArea.Width,
+                        OLED_UI_Window.CurrentArea.Height,
+
+                        OLED_UI_Window.CurrentArea.X + OLED_UI_Window.CurrentArea.Width - 1 - CurrentWindow->Title_FontSideDistance - DataLength,
+                        OLED_UI_Window.CurrentArea.Y + CurrentWindow->Title_FontTopDistance,
+                        CurrentWindow->Prob_FontSize,
+                        "%d",
+                        *CurrentWindow->Prob_Data_Int_64_t
+
+                    );
+                    break;
+                case WINDOW_DATA_STYLE_FLOAT:
+                    DataLength = OLED_UI_CalcStringWidth(CurrentWindow->Prob_FontSize,"%.*f",CurrentWindow->Prob_FloatPointLength,*CurrentWindow->Prob_Data_Float);
+                    OLED_PrintfArea(
+                        //限制区域
+                        OLED_UI_Window.CurrentArea.X,
+                        OLED_UI_Window.CurrentArea.Y,
+                        OLED_UI_Window.CurrentArea.Width,
+                        OLED_UI_Window.CurrentArea.Height,
+
+                        OLED_UI_Window.CurrentArea.X + OLED_UI_Window.CurrentArea.Width - 1 - CurrentWindow->Title_FontSideDistance - DataLength,
+                        OLED_UI_Window.CurrentArea.Y + CurrentWindow->Title_FontTopDistance,
+                        CurrentWindow->Prob_FontSize,
+                        "%.*f",
+                        CurrentWindow->Prob_FloatPointLength,
+                        *CurrentWindow->Prob_Data_Float
+
+                        );
+                    break;
+
+            }
+            //显示进度条（外框）
+            OLED_UI_DrawProgressBar(
+                OLED_UI_Window.CurrentArea.X +CurrentWindow->Prob_SideDistance,
+                OLED_UI_Window.CurrentArea.Y + OLED_UI_Window.CurrentArea.Height  - CurrentWindow->Prob_LineHeight - CurrentWindow->Prob_BottomDistance,
+                OLED_UI_Window.CurrentArea.Width- 2*CurrentWindow->Prob_SideDistance,
+                CurrentWindow->Prob_LineHeight,
+                OLED_UI_ProbWidth.CurrentDistance/(OLED_UI_Window.CurrentArea.Width- 2*CurrentWindow->Prob_SideDistance - 4)
+            
+            );
 			
-				//计算字符串被限制的最大宽度
-				MaxLength = OLED_UI_Window.CurrentArea.Width - 2*CurrentWindow->Text_FontSideDistance - CalcStringWidth(ChineseFont,	ASCIIFont,	"%5.2f",*CurrentWindow->Prob_Data_Float) - WINDOW_DATA_TEXT_DISTANCE;
-				//计算数据所占的宽度
-				DataLength = CalcStringWidth(ChineseFont,ASCIIFont,"%5.2f",*CurrentWindow->Prob_Data_Float);
-				//显示数据
-				OLED_PrintfMixArea(
-					//区域限制
-					OLED_UI_Window.CurrentArea.X,
-					OLED_UI_Window.CurrentArea.Y,
-					OLED_UI_Window.CurrentArea.Width,
-					OLED_UI_Window.CurrentArea.Height,
-					OLED_UI_Window.CurrentArea.X + CurrentWindow->General_Width - 1 - CurrentWindow->Text_FontSideDistance - DataLength,
-					OLED_UI_Window.CurrentArea.Y + CurrentWindow->Text_FontTopDistance,
-					ChineseFont,ASCIIFont,
-					"%5.2f",*CurrentWindow->Prob_Data_Float);
-			}
-			
 
-			//显示进度条（外框）
-			OLED_DrawRoundedRectangle(OLED_UI_Window.CurrentArea.X +CurrentWindow->Prob_SideDistance,
-			OLED_UI_Window.CurrentArea.Y + OLED_UI_Window.CurrentArea.Height  - CurrentWindow->Prob_LineHeight - CurrentWindow->Prob_BottomDistance,
-			OLED_UI_Window.CurrentArea.Width- 2*CurrentWindow->Prob_SideDistance,CurrentWindow->Prob_LineHeight,2,OLED_UNFILLED);
-			//显示进度条（内部）
-			OLED_DrawRectangle(OLED_UI_Window.CurrentArea.X +CurrentWindow->Prob_SideDistance + 2,
-							OLED_UI_Window.CurrentArea.Y + OLED_UI_Window.CurrentArea.Height  - CurrentWindow->Prob_LineHeight - CurrentWindow->Prob_BottomDistance + 2,
-							OLED_UI_ProbWidth.CurrentDistance>=OLED_UI_Window.CurrentArea.Width- 2*CurrentWindow->Prob_SideDistance - 4  ?OLED_UI_Window.CurrentArea.Width- 2*CurrentWindow->Prob_SideDistance - 4: OLED_UI_ProbWidth.CurrentDistance  ,CurrentWindow->Prob_LineHeight-4,OLED_FILLED);
-		}
-		if(CurrentWindow->Text_String != NULL){
-			int16_t WindowTextStringLength = CalcStringWidth(ChineseFont,ASCIIFont,CurrentWindow->Text_String);
-			//如果字符串的宽度超过了最大限定宽度
-			if(WindowTextStringLength > MaxLength){
-#if IF_WAIT_ANIMATION_FINISH
-                if( OLED_UI_Window.CurrentArea.X == OLED_UI_Window.TargetArea.X &&
-                        OLED_UI_Window.CurrentArea.Y == OLED_UI_Window.TargetArea.Y &&
-                        OLED_UI_Window.CurrentArea.Width == OLED_UI_Window.TargetArea.Width &&
-                        OLED_UI_Window.CurrentArea.Height == OLED_UI_Window.TargetArea.Height){
-#endif
-		    	CurrentWindow->_LineSlip-=LINE_SLIP_SPEED;
-#if IF_WAIT_ANIMATION_FINISH
-                }
-#endif
-		}
-			if(CurrentWindow->_LineSlip < -WindowTextStringLength){
-		   	 	CurrentWindow->_LineSlip =  MaxLength + 1;
-			}
-
-			OLED_PrintfMixArea(
-			        OLED_UI_Window.CurrentArea.X + CurrentWindow->Text_FontSideDistance,
-			        OLED_UI_Window.CurrentArea.Y + CurrentWindow->Text_FontTopDistance,
-			        MaxLength,
-			        OLED_UI_Window.CurrentArea.Height,
-					OLED_UI_Window.CurrentArea.X + CurrentWindow->Text_FontSideDistance + CurrentWindow->_LineSlip,
-					OLED_UI_Window.CurrentArea.Y + CurrentWindow->Text_FontTopDistance,
-					ChineseFont,ASCIIFont,CurrentWindow->Text_String);
-			}
-
-	}else{
-		// 如果窗口动画已经退出屏幕，则将当前窗口指针指向NULL
-		CurrentWindow = NULL;
-	}
-	
-}
+        }
 
 
+        //打印窗口标题
+        if(CurrentWindow->Title_text != NULL){
+            OLED_UI_PrintStringScroll(
+                // 限制区域
+                OLED_UI_Window.CurrentArea.X + CurrentWindow->Title_FontSideDistance,
+                OLED_UI_Window.CurrentArea.Y + CurrentWindow->Title_FontTopDistance,
+                OLED_UI_Window.CurrentArea.Width - CurrentWindow->Title_FontSideDistance*2 - DataLength - DataPerfixWidth,
+                CurrentWindow->Title_FontSize,
+                // 打印起始位置
+                OLED_UI_Window.CurrentArea.X + CurrentWindow->Title_FontSideDistance,
+                OLED_UI_Window.CurrentArea.Y + CurrentWindow->Title_FontTopDistance,
+                // 限制宽度
+                OLED_UI_Window.TargetArea.Width - CurrentWindow->Title_FontSideDistance*2 - DataLength - DataPerfixWidth,
+                CurrentWindow->Title_FontSize,
+                CurrentWindow->Title_text,
+                &CurrentWindow->_LineSlip,
+                OLED_UI_IfAnimationEnd(ANIM_WINDOW)
+            );
+        }
 
-
-
-
-
-/**
- * @brief 将菜单整体向上移动一行
- * @param 无
- * @return 无
- */
-void MenuItemsMoveUp(void){
-	OLED_UI_PageStartPoint.TargetPoint.Y -= (OLED_UI_LineStep.TargetDistance + CurrentMenuPage->General_FontSize);
-}
-/**
- * @brief 将菜单整体向下移动一行
- * @param 无
- * @return 无
- */
-void MenuItemsMoveDown(void){
-	OLED_UI_PageStartPoint.TargetPoint.Y += (OLED_UI_LineStep.TargetDistance + CurrentMenuPage->General_FontSize);
-}
-/**
- * @brief 将菜单整体向左移动一列
- * @param 无
- * @return 无
- */
-void MenuItemsMoveLeft(void){
-	OLED_UI_PageStartPoint.TargetPoint.X -= (OLED_UI_LineStep.TargetDistance + CurrentMenuPage->Tiles_TileWidth);
-}
-/**
- * @brief 将菜单整体向右移动一列
- * @param 无
- * @return 无
- */
-void MenuItemsMoveRight(void){
-	OLED_UI_PageStartPoint.TargetPoint.X += (OLED_UI_LineStep.TargetDistance + CurrentMenuPage->Tiles_TileWidth);
-}
-/**
- * @brief 获取当前菜单页面的槽位数量
- * @param 无
- * @return 当前菜单页面的槽位数量
- */
-int16_t GetCurrentMenuPageMaxSlotNum(void){
-	return (int16_t)(CurrentMenuPage->List_MenuArea.Height - CurrentMenuPage->List_StartPointY+OLED_UI_LineStep.TargetDistance-1) / (OLED_UI_LineStep.TargetDistance + CurrentMenuPage->General_FontSize );
-}
-
-
-
-/**
- * @brief 设置目标光标区域
- * @param 无
- * @return 无
- */
-void SetTargetCursor(void){
-	//如果当前页面的类型为List类
-	if(CurrentMenuPage->General_MenuType == MENU_TYPE_LIST){
-		//目标光标x坐标等于 开始打印页面起始点的x坐标减1【减去1是为了确保光标覆盖到菜单项的文字】
-		OLED_UI_Cursor.TargetArea.X = OLED_UI_PageStartPoint.TargetPoint.X -1;
-
-		//目标光标y坐标等于 开始打印页面起始点的y坐标  加上  (字体高度 加 行距)乘 当前页面的ID号 减1【减去1是为了确保光标覆盖到菜单项的文字】
-		OLED_UI_Cursor.TargetArea.Y = OLED_UI_PageStartPoint.TargetPoint.Y + 
-		CurrentMenuPage->_ActiveMenuID * ( CurrentMenuPage->General_LineSpace + CurrentMenuPage->General_FontSize) -1 ;
-		//目标光标高度等于 字体高度 加2【加2是为了确保光标覆盖到菜单项的文字】
-		OLED_UI_Cursor.TargetArea.Height = CurrentMenuPage->General_FontSize + 2;
-		//目标光标宽度等于 当前字符串的宽度	【加2是为了确保光标覆盖到菜单项的文字】
-		//如果有行前缀
-		int8_t LinePerfixWidth = 0;
-		if(CurrentMenuPage->List_IfDrawLinePerfix == true){
-			LinePerfixWidth = GetOLED_Font(CurrentMenuPage->General_FontSize,ASCII) + LINEPERFIX_DISTANCE;
-		}
-		////单选框宽度
-		int8_t RadioCompensationWidth = 0;
-		//如果需要绘制单选框(即BoolRadioBox不为空)
-		if(CurrentMenuPage->General_MenuItems[CurrentMenuPage->_ActiveMenuID].List_BoolRadioBox != NULL){
-			RadioCompensationWidth = (GetOLED_Font(CurrentMenuPage->General_FontSize,CHINESE) + 2);
-		}else{
-			RadioCompensationWidth = 0;
-		}
-		OLED_UI_Cursor.TargetArea.Width = 
-		fmin((float)CalcStringWidth(
-			//字符串长度
-			GetOLED_Font(CurrentMenuPage->General_FontSize,CHINESE),GetOLED_Font(CurrentMenuPage->General_FontSize,ASCII),CurrentMenuPage->General_MenuItems[CurrentMenuPage->_ActiveMenuID].General_item_text) + 2 + LinePerfixWidth ,
-			//当前页面的宽度加当前页面的起始坐标减去开始打印页面起始点的坐标减去6（是滚动条宽度加一）加上行前缀的宽度
-			OLED_UI_MenuFrame.CurrentArea.Width + OLED_UI_MenuFrame.CurrentArea.X - OLED_UI_PageStartPoint.CurrentPoint.X - 6 - LinePerfixWidth + LinePerfixWidth - RadioCompensationWidth) ;
-	}
-	//如果当前页面的类型为Tiles类
-	if(CurrentMenuPage->General_MenuType == MENU_TYPE_TILES){
-		//磁贴类不需要光标的显示，所以设置为0.
-		// SetCursorZero();
-		OLED_UI_Cursor.TargetArea.X = CurrentMenuPage->Tiles_ScreenWidth/2 - CalcStringWidth(GetOLED_Font(CurrentMenuPage->General_FontSize,CHINESE),GetOLED_Font(CurrentMenuPage->General_FontSize,ASCII),CurrentMenuPage->General_MenuItems[CurrentMenuPage->_ActiveMenuID].General_item_text)/2 - 1;
-		OLED_UI_Cursor.TargetArea.Y = CurrentMenuPage->Tiles_ScreenHeight - CurrentMenuPage->General_FontSize - TILES_BOTTOM_DISTANCE - 1;
-		OLED_UI_Cursor.TargetArea.Height = CurrentMenuPage->General_FontSize + 2;
-		OLED_UI_Cursor.TargetArea.Width = CalcStringWidth(GetOLED_Font(CurrentMenuPage->General_FontSize,CHINESE),GetOLED_Font(CurrentMenuPage->General_FontSize,ASCII),CurrentMenuPage->General_MenuItems[CurrentMenuPage->_ActiveMenuID].General_item_text) + 2;
-
-	}
-}
-/**
- * @brief 设置目标菜单边框
- * @param 无
- * @return 无
- */
-void SetTargetMenuFrame(void){
-	OLED_UI_MenuFrame.TargetArea.X = CurrentMenuPage->List_MenuArea.X;
-	OLED_UI_MenuFrame.TargetArea.Y = CurrentMenuPage->List_MenuArea.Y;
-	OLED_UI_MenuFrame.TargetArea.Width = CurrentMenuPage->List_MenuArea.Width;
-	OLED_UI_MenuFrame.TargetArea.Height = CurrentMenuPage->List_MenuArea.Height;
-
-}
-/**
- * @brief 将当前页面的LineSlip 设置为0
- * @param 无
- * @return 无
- */
-void SetLineSplitZero(void){
-	MenuPage* page = CurrentMenuPage;
-	for(MenuID i = 0; i<GetMenuItemNum(page->General_MenuItems);i++){
-		page->General_MenuItems[i]._LineSlip = 0;
-	}
-}
-
-/**
- * @brief 设置目标滚动条高度
- * @param 无
- * @return 无
- */
-void SetTargetScrollBarHeight(void){
-	if(CurrentMenuPage->General_MenuType == MENU_TYPE_LIST){
-		OLED_UI_ScrollBarHeight.TargetDistance = (float)CurrentMenuPage->List_MenuArea.Height*(CurrentMenuPage->_ActiveMenuID + 1)/GetMenuItemNum(CurrentMenuPage->General_MenuItems);
-	}else if(CurrentMenuPage->General_MenuType == MENU_TYPE_TILES){
-		OLED_UI_ScrollBarHeight.TargetDistance = (float)(CurrentMenuPage->Tiles_ScreenWidth *(CurrentMenuPage->_ActiveMenuID + 1)/GetMenuItemNum(CurrentMenuPage->General_MenuItems));
-	}
-}
-/**
- * @brief 设置目标进度条长度
- * @param 无
- * @return 无
- */
-void SetTargetProbWidth(void){
-	
-	//确认数据类型
-	int8_t DataStyle = GetWindowDataStyle(CurrentWindow->Prob_Data_Int,CurrentWindow->Prob_Data_Float);
-	if(DataStyle != WINDOW_DATA_STYLE_NONE){
-		if(DataStyle == WINDOW_DATA_STYLE_INT){
-			OLED_UI_ProbWidth.TargetDistance = ((*CurrentWindow->Prob_Data_Int - CurrentWindow->Prob_MinData)/((float)CurrentWindow->Prob_MaxData - CurrentWindow->Prob_MinData ))*	(OLED_UI_Window.CurrentArea.Width- 2*CurrentWindow->Prob_SideDistance - 4);
-		}else{
-			OLED_UI_ProbWidth.TargetDistance = ((*CurrentWindow->Prob_Data_Float - CurrentWindow->Prob_MinData)/((float)CurrentWindow->Prob_MaxData - CurrentWindow->Prob_MinData ))*	(OLED_UI_Window.CurrentArea.Width- 2*CurrentWindow->Prob_SideDistance - 4);
-		}
-	}
-	
-}
-
-/**
- * @brief 根据当前页面情况决定是否绘制行前缀
- * @param page 菜单页面结构体指针
- * @param id 菜单项ID号
- * @param CursorPoint 光标的坐标
- * @return 无
- */
-void DrawLinePermix(MenuPage* page,MenuID i,OLED_Point* CursorPoint,OLED_Font ChineseFont,OLED_Font ASCIIFont){
-	//如果需要打印行前缀
-	if(page->List_IfDrawLinePerfix == true){
-		char* LinePerfixSymb = "";
-		//如果当前的菜单项有子菜单且没有回调函数，那么打印相应的符号
-		if(CurrentMenuPage->General_MenuItems[i].General_SubMenuPage != NULL && page->General_MenuItems[i].General_callback == NULL && page->General_MenuItems[i].List_BoolRadioBox == NULL){
-			LinePerfixSymb = SUBMENU_PREFIX;
-		}else//如果有回调函数
-		if(CurrentMenuPage->General_MenuItems[i].General_SubMenuPage == NULL && page->General_MenuItems[i].General_callback != NULL && page->General_MenuItems[i].List_BoolRadioBox == NULL){
-			LinePerfixSymb = FUNCTION_PREFIX;
-		}else
-		if(CurrentMenuPage->General_MenuItems[i].General_SubMenuPage == NULL && page->General_MenuItems[i].General_callback == NULL && page->General_MenuItems[i].List_BoolRadioBox != NULL)
-		{
-			LinePerfixSymb = RADIO_PREFIX;
-		}else{
-			LinePerfixSymb = NONE_PREFIX;
-		}
-
-		OLED_PrintfMixArea(//在限制的区域内打印文字
-					   //光标的起始x坐标
-				       OLED_UI_MenuFrame.CurrentArea.X ,
-					   OLED_UI_MenuFrame.CurrentArea.Y,
-					   OLED_UI_MenuFrame.CurrentArea.Width - 6,
-					   OLED_UI_MenuFrame.CurrentArea.Height,
-					   //打印文字的坐标
-					   CursorPoint->X,
-					   CursorPoint->Y,
-					   //打印文字的大小
-					   ChineseFont,ASCIIFont,
-					   //打印文字的内容
-					   LinePerfixSymb);
-		
-	}
-
-}
-
-
-/**
- * @brief 根据传入的结构体数组指针打印菜单元素
- * @param 无
- * @return 无
- */
-void PrintMenuElements(void){
-	//【踩坑】将当前页面的结构体指针取出，如果不这样做，若是在for循环当中改变结构体指针，则会导致for循环出错，访问到NULL指针，发生硬件错误造成卡死
-	MenuPage* page = CurrentMenuPage;
-	OLED_ChangePoint TempTargetPoint = OLED_UI_PageStartPoint;
-	OLED_ChangeArea TempTargetArea = OLED_UI_MenuFrame;
-	
-	//获取当前页面的菜单项数量
-	MenuID num = GetMenuItemNum(page->General_MenuItems);
-	//获取文本大小，从当前页面的字体宽度推算出ASCII字体宽度与中文字体宽度
-	OLED_Font ChineseFont = GetOLED_Font(page->General_FontSize,CHINESE),ASCIIFont = GetOLED_Font(page->General_FontSize,ASCII);
-	//绘制所需的坐标光标,初始化为当前菜单结构体的开始点
-	OLED_Point CursorPoint = TempTargetPoint.CurrentPoint;
-    
-	//如果当前页面的类型为列表类
-	if(page->General_MenuType == MENU_TYPE_LIST){
-		//行前缀宽度
-		int16_t LinePerfixWidth = 0;
-		////单选框宽度
-		int16_t RadioCompensationWidth = 0;
-
-		//绘制边框【坐标减一宽度加二是为了使得外框不会挡住菜单区域，所以实际上外框不属于菜单区域】
-		if(page->List_IfDrawFrame == true){
-			OLED_DrawRectangle(TempTargetArea.CurrentArea.X-1,TempTargetArea.CurrentArea.Y-1,	TempTargetArea.CurrentArea.Width+2,TempTargetArea.CurrentArea.Height+2,OLED_UNFILLED);
-		}
-		//如果需要绘制行前缀
-		if(page->List_IfDrawLinePerfix == true){
-			//将行前缀宽度设置为ASCII字体宽度加LINEPERFIX_DISTANCE（与后方字符串的距离）
-			LinePerfixWidth = ASCIIFont + LINEPERFIX_DISTANCE;
-		}
-
-
-		//打印菜单项
-		for(MenuID i = 0; i<num;i++){
-			
-			if(CursorPoint.Y + ChineseFont <0 || CursorPoint.Y > OLED_HEIGHT){
-				CursorPoint.Y += (page->General_FontSize + OLED_UI_LineStep.CurrentDistance);
-				continue;
-			}
-
-			//记录此轮循环的字符串宽度
-			int16_t StringLength = CalcStringWidth(ChineseFont,ASCIIFont,page->General_MenuItems[i].General_item_text);
-
-			//根据情况绘制行前缀
-			DrawLinePermix(page,i,&CursorPoint,ChineseFont,ASCIIFont);
-
-			//如果需要绘制单选框(即BoolRadioBox不为空)
-			if(page->General_MenuItems[i].List_BoolRadioBox != NULL){
-				RadioCompensationWidth = (ChineseFont + 2);
-				char* RadioBoxSymb = "";
-				if(*page->General_MenuItems[i].List_BoolRadioBox == true){
-					RadioBoxSymb = "■";
-				}else{
-					RadioBoxSymb = "□";
-				}
-
-
-				OLED_PrintfMixArea(//在限制的区域内打印文字
-							   //光标的起始x坐标加入行前缀宽度，这样可以自动留出打印行前缀的空间
-						       TempTargetArea.CurrentArea.X ,
-							   TempTargetArea.CurrentArea.Y,
-							   TempTargetArea.CurrentArea.Width - 6,
-							   TempTargetArea.CurrentArea.Height,
-
-							   //打印文字的坐标
-							   CursorPoint.X + TempTargetArea.CurrentArea.Width - RadioCompensationWidth -9 ,
-							   CursorPoint.Y,
-							   //打印文字的大小
-							   ChineseFont,ASCIIFont,
-							   //打印文字的内容
-							   RadioBoxSymb);
-			}else{
-				RadioCompensationWidth = 0;
-			}
-
-			//如果字符串的宽度超过了最大限定宽度
-			if(StringLength > (TempTargetArea.TargetArea.X + TempTargetArea.TargetArea.Width - 6 - 2) - TempTargetPoint.TargetPoint.X - LinePerfixWidth - RadioCompensationWidth ){
-#if IF_WAIT_ANIMATION_FINISH
-			    if(TempTargetArea.TargetArea.Width == TempTargetArea.CurrentArea.Width &&
-					TempTargetArea.TargetArea.X == TempTargetArea.CurrentArea.X &&
-					TempTargetArea.TargetArea.Height == TempTargetArea.CurrentArea.Height &&
-					TempTargetArea.TargetArea.Y == TempTargetArea.CurrentArea.Y){
-#endif
-						page->General_MenuItems[i]._LineSlip -= LINE_SLIP_SPEED;
-#if IF_WAIT_ANIMATION_FINISH
-					}
-#endif
-				
-				
-				//如果page->MenuItems[i]._LineSlip小于负的字符串宽度，说明字符串已经左移到看不见
-				if(page->General_MenuItems[i]._LineSlip < -StringLength){
-					//将位置设在最大限定宽度的右侧刚刚好看不见的地方
-					page->General_MenuItems[i]._LineSlip = (TempTargetArea.TargetArea.X + TempTargetArea.TargetArea.Width - 6) - CursorPoint.X - LinePerfixWidth;
-				}
-
-
-			}
-
-			OLED_PrintfMixArea(TempTargetArea.CurrentArea.X + LinePerfixWidth + CurrentMenuPage->List_StartPointX ,
-			 					TempTargetArea.CurrentArea.Y,
-			 					TempTargetArea.CurrentArea.Width - 6 - LinePerfixWidth - CurrentMenuPage->List_StartPointX  -2 - RadioCompensationWidth,
-			 					TempTargetArea.CurrentArea.Height,
-								//坐标加上LinePerfixWidth是为了给行前缀留下空间
-							   	CursorPoint.X + LinePerfixWidth + page->General_MenuItems[i]._LineSlip,
-							   	CursorPoint.Y,
-							   	ChineseFont,ASCIIFont,page->General_MenuItems[i].General_item_text);
-
-			// 打印光标下移
-			CursorPoint.Y += (page->General_FontSize + OLED_UI_LineStep.CurrentDistance);
-
-		}
-
-		//绘制滚动条与其中心线
-		OLED_DrawRectangle(TempTargetArea.CurrentArea.X + TempTargetArea.CurrentArea.Width - 5,TempTargetArea.CurrentArea.Y,5,(OLED_UI_ScrollBarHeight.CurrentDistance > page->List_MenuArea.Height) ?page->List_MenuArea.Height:OLED_UI_ScrollBarHeight.CurrentDistance,OLED_FILLED);
-		OLED_DrawLine(TempTargetArea.CurrentArea.X + TempTargetArea.CurrentArea.Width - 3,TempTargetArea.CurrentArea.Y,TempTargetArea.CurrentArea.X + TempTargetArea.CurrentArea.Width-3,TempTargetArea.CurrentArea.Height + TempTargetArea.CurrentArea.Y-1);
-	}
-	//如果当前的页面为磁贴类型
-	if(page->General_MenuType == MENU_TYPE_TILES){
-		//打印磁贴项
-		for(MenuID i = 0; i<num;i++){
-			if(CursorPoint.X + page->Tiles_TileWidth < 0 || CursorPoint.X > OLED_WIDTH){
-				CursorPoint.X += (page->Tiles_TileWidth + OLED_UI_LineStep.CurrentDistance);
-				continue;
-			}
-
-			//显示磁贴图标
-			OLED_ShowImageArea(ceil(CursorPoint.X),CursorPoint.Y,page->Tiles_TileWidth,page->Tiles_TileHeight,0,0,page->Tiles_ScreenWidth,page->Tiles_ScreenHeight,page->General_MenuItems[i].Tiles_Icon == NULL?UnKnown:page->General_MenuItems[i].Tiles_Icon);
-			// 打印光标右移
-			CursorPoint.X += (page->Tiles_TileWidth + OLED_UI_LineStep.CurrentDistance);
-			//显示菜单项文字
-			
-		}
-		//绘制指示箭头
-		OLED_ShowImageArea(page->Tiles_ScreenWidth/2 - 3,0,6,5,0,0,page->Tiles_ScreenWidth,page->Tiles_ScreenHeight,Arrow);
-
-		//记录此轮循环的字符串宽度
-		int16_t StringLength = CalcStringWidth(ChineseFont,ASCIIFont,page->General_MenuItems[page->_ActiveMenuID].General_item_text);
-		//如果字符串的宽度大于用户所设置的屏幕宽度
-		if(StringLength > page->Tiles_ScreenWidth){
-#if IF_WAIT_ANIMATION_FINISH
-		    if(OLED_UI_PageStartPoint.CurrentPoint.X == OLED_UI_PageStartPoint.TargetPoint.X &&
-		        OLED_UI_PageStartPoint.CurrentPoint.Y == OLED_UI_PageStartPoint.TargetPoint.Y ){
-#endif
-		        page->General_MenuItems[page->_ActiveMenuID]._LineSlip -= LINE_SLIP_SPEED;
-#if IF_WAIT_ANIMATION_FINISH
-		    }
-#endif
-		}else{
-		    SetLineSplitZero();
-		}
-		//如果page->MenuItems[i]._LineSlip小于负的字符串宽度，说明字符串已经左移到看不见
-		if(page->General_MenuItems[page->_ActiveMenuID]._LineSlip < -StringLength){
-		     //将位置设在最大限定宽度的右侧刚刚好看不见的地方
-		     page->General_MenuItems[page->_ActiveMenuID]._LineSlip = page->Tiles_ScreenWidth + 1;
-		}
-
-		OLED_PrintfMixArea(0,0,page->Tiles_ScreenWidth,page->Tiles_ScreenHeight,
-		        StringLength > page->Tiles_ScreenWidth? 0 + page->General_MenuItems[page->_ActiveMenuID]._LineSlip : page->Tiles_ScreenWidth/2 - CalcStringWidth(ChineseFont,ASCIIFont,page->General_MenuItems[page->_ActiveMenuID].General_item_text)/2 + page->General_MenuItems[page->_ActiveMenuID]._LineSlip,
-							   page->Tiles_ScreenHeight - page->General_FontSize - TILES_BOTTOM_DISTANCE,
-							   ChineseFont,ASCIIFont,
-							   page->General_MenuItems[page->_ActiveMenuID].General_item_text);
-		//绘制滚动条与其中心线
-		int16_t ScrollBarHeight = (page->Tiles_ScreenHeight >= 128? 5:3);
-		OLED_DrawRectangle(0,TILES_STARTPOINT_Y + page->Tiles_TileHeight + TILES_SCROLLBAR_Y,
-						OLED_UI_ScrollBarHeight.CurrentDistance,ScrollBarHeight,OLED_FILLED);
-		OLED_DrawLine(0,TILES_STARTPOINT_Y + page->Tiles_TileHeight + TILES_SCROLLBAR_Y + ScrollBarHeight/2,page->Tiles_ScreenWidth-1,TILES_STARTPOINT_Y + page->Tiles_TileHeight + TILES_SCROLLBAR_Y + ScrollBarHeight/2);
-
-		
-		
-	}
-	if(page->General_ShowAuxiliaryFunction != NULL){
-		//绘制辅助功能
-		page->General_ShowAuxiliaryFunction();
-	}
-	
-}
-
-
-
-/**
- * @brief 按键与编码器记录函数
- * @param 无
- * @return 上一轮与这一轮的_ActiveMenuID差值
- * @note 实际上_ActiveMenuID的值不变。
-  */
-MenuID_Type OLED_KeyAndEncoderRecord(void){
-    static bool IfUpTapAndHold = false;
-    static bool IfDownTapAndHold = false;
-	//记录上一轮按键状态
-    OLED_UI_LastKey.Up=OLED_UI_Key.Up;
-	OLED_UI_LastKey.Down=OLED_UI_Key.Down;
-	OLED_UI_LastKey.Enter=OLED_UI_Key.Enter;
-	OLED_UI_LastKey.Back=OLED_UI_Key.Back;
-    
-    //记录当前按键状态
-	OLED_UI_Key.Enter = Key_GetEnterStatus();
-	OLED_UI_Key.Back = Key_GetBackStatus();
-	OLED_UI_Key.Up = Key_GetUpStatus();
-	OLED_UI_Key.Down = Key_GetDownStatus();
-#if IF_START_UP_AND_DOWN_LONG_PRESS
-
-	static int16_t UpPressCounter = 0;
-	static int16_t UpPressedCounter  = 0;
-	static int16_t DownPressCounter = 0;
-	static int16_t DownPressedCounter = 0;
-	//如果上一次和这一次都按下的状态持续
-	if(OLED_UI_LastKey.Up == 0 && OLED_UI_Key.Up == 0){
-	    UpPressCounter++;
-	    if(UpPressCounter >= (float)PRESS_TIME * 50){
-	        UpPressedCounter ++;
-	        if(UpPressedCounter >= (UpPressCounter >= (PRESS_TIME + CONTINUE_PRESS_TIME) * 50? CONTINUE_PRESS_MOVE_SPEED : PRESS_MOVE_SPEED)){
-	            IfUpTapAndHold = true;
-	            UpPressedCounter = 0;
-	            IfUpTapAndHold = true;
-	        }else{
-	            IfUpTapAndHold = false;
-	        }
-	    }
-
-	}else{
-	    UpPressCounter = 0;
-	    UpPressedCounter = 0;
-	    IfUpTapAndHold = false;
-	}
-	//如果上一次和这一次都按下的状态持续
-	    if(OLED_UI_LastKey.Down == 0 && OLED_UI_Key.Down == 0){
-	        DownPressCounter++;
-
-	        if(DownPressCounter >= (float)PRESS_TIME * 50){
-	            DownPressedCounter ++;
-	            if(DownPressedCounter >= (DownPressCounter >= (PRESS_TIME + CONTINUE_PRESS_TIME) * 50? CONTINUE_PRESS_MOVE_SPEED : PRESS_MOVE_SPEED)){
-	                IfDownTapAndHold = true;
-	                DownPressedCounter = 0;
-	                IfDownTapAndHold = true;
-	            }else{
-	                IfDownTapAndHold = false;
-	            }
-	        }
-
-	    }else{
-	        DownPressCounter = 0;
-	        DownPressedCounter = 0;
-	        IfDownTapAndHold = false;
-	    }
-
-#endif
-	if(OLED_UI_Key.Up == OLED_UI_Key.Down){
-	    IfUpTapAndHold = false;
-	    IfDownTapAndHold = false;
-
-	}
-
-	//获取当前页面的菜单项数量
-	int16_t MaxID = GetMenuItemNum(CurrentMenuPage->General_MenuItems);
-	MenuID_Type IncreaseID = {0,0};
-	int16_t ActiveMenuID = CurrentMenuPage->_ActiveMenuID;
-	int16_t LastActiveID = ActiveMenuID;
-	//获取编码器状态
-	ActiveMenuID += Encoder_Get();
-
-	//如果检测到【上】按键的上一状态与这次的状态不同，且这一状态是抬起状态，说明用户按下了【上】按键，并且刚刚才抬起
-	if((OLED_UI_Key.Up != OLED_UI_LastKey.Up && OLED_UI_Key.Up == 1) || IfUpTapAndHold){
-		ActiveMenuID--;
-	}
-
-	//如果检测到【下】按键的上一状态与这次的状态不同，且这一状态是抬起状态，说明用户按下了【下】按键，并且刚刚才抬起
-	if((OLED_UI_Key.Down != OLED_UI_LastKey.Down && OLED_UI_Key.Down == 1) || IfDownTapAndHold){
-		ActiveMenuID++;
-	}
-	
-	IncreaseID.Unsafe = ActiveMenuID - LastActiveID;
-	//如果当前菜单项ID号越界，则将其限制在0~MaxID-1之间
-	if(ActiveMenuID >= MaxID-1){
-		ActiveMenuID = MaxID-1;
-	}
-	if(ActiveMenuID <= 0){
-		ActiveMenuID = 0;
-	}
-
-	IncreaseID.Safe = ActiveMenuID - LastActiveID;
-	return IncreaseID;
-}
-/**
- * @brief 将KeyEnterFlag置FLAGSTART，用于标记回调函数正在执行
- * @param 无
- * @return 无
- */
-void SetEnterFlag(void){
-	KeyEnterFlag = FLAGSTART;
-	Encoder_Disable();  // 失能编码器
-}
-
-/**
- * @brief 将KeyEnterFlag置FLAGEND，用于表示回调函数没有正在执行
- * @param void
- * @return 无
- */
-void ResetEnterFlag(void){
-	KeyEnterFlag = FLAGEND;
-}
-
-
-/**
- * @brief 将FadeOutFlag置FLAGSTART，用于标记渐隐效果正在执行
- * @param 无
- * @return 无
- */
-void SetFadeOutFlag(MutexFlag action){
-	FadeOutFlag = action;
-	Encoder_Disable();  // 失能编码器
-}
-
-/**
- * @brief 将FadeOutFlag置FLAGEND，用于表示渐隐效果没有正在执行
- * @param void
- * @return 无
- */
-void ResetFadeOutFlag(void){
-	FadeOutFlag = FLAGEND;
-}
-
-/**
- * @brief 此函数处理按下Enter按键后的情况，分为以下几种情况：
- * 		1. 当前菜单项有回调函数，那么就将KeyEnterFlag置位。
- * 		2. 当前菜单项没有回调函数，但是有子菜单，那么就进入子菜单
- * 		3. 当前菜单项没有回调函数，也没有子菜单，那么就什么都不做
- * 		4. 当前菜单项既有回调函数，又有子菜单，那么就什么也不做
- * @param 无
- * @return 无
- */
-void EnterEventMenuItem(void){
-    //如果当前选中菜单项有回调函数并且没有子菜单，那么就将KeyEnterFlag置位
-    if(CurrentMenuPage->General_MenuItems[CurrentMenuPage->_ActiveMenuID].General_callback != NULL && CurrentMenuPage->General_MenuItems[CurrentMenuPage->_ActiveMenuID].General_SubMenuPage == NULL){
-
-        SetEnterFlag();
+    }else{
+        CurrentWindow = NULL;
     }
-	//如果当前选中菜单项没有回调函数，但是有子菜单，那么置确认标志位
-    if(CurrentMenuPage->General_MenuItems[CurrentMenuPage->_ActiveMenuID].General_SubMenuPage != NULL 
-	&& CurrentMenuPage->General_MenuItems[CurrentMenuPage->_ActiveMenuID].General_callback == NULL){
-		SetFadeOutFlag(ENTER_FLAGSTART);
+
+}
+
+/**
+ * @brief 初始化检查
+ * @param 无
+ * @note 检查是否需正确传入了菜单结构体指针。
+ * @return 无
+ */
+void OLED_UI_InitCheck(void)
+{
+    if(CurrentMenuPage == NULL){
+        OLED_Init();
+        while(1){
+            //刷新屏幕
+            OLED_Printf(0,0,OLED_FONT_8,"OLED UI\nError:\nWithout\nInit!");
+            OLED_Update();
+        }
     }
 
 }
 /**
- * @brief 按下【返回】按键后的操作
+ * @brief 打印UI元素
  * @param 无
+ * @note 打印UI元素，包括菜单、按钮、文本框、进度条等。
  * @return 无
  */
-void BackEventMenuItem(void){
-	//如果当前菜单的父菜单不为空
-	if(CurrentMenuPage->General_ParentMenuPage != NULL){
-		//置返回标置位
-        SetFadeOutFlag(BACK_FLAGSTART);
+void OLED_UI_PrintElement(void)
+{
+    //清除显存
+    OLED_Clear();
+
+    // 显示帧数
+    OLED_UI_ShowFPS();
+
+    // 显示菜单项
+    OLED_UI_PrintMenuItems();
+
+    // 显示窗口
+    OLED_UI_DrawWindow();
+
+    //刷屏
+    OLED_Update();
+
+    //如果屏幕发生变化，记录有效帧
+    if(OLED_IfChangedScreen()){
+        OLED_UI_FPS.Counter++;
     }
 }
+        /*===============================OLED-UI工具函数==============================*/
+    /*===================================OLED-UI工具函数==================================*/
+/*=======================================OLED-UI工具函数======================================*/
+
+
+/*=======================================OLED-UI实现函数======================================*/
+    /*===================================OLED-UI实现函数==================================*/
+        /*===============================OLED-UI实现函数==============================*/
+
+
+
+
 /**
- * @brief 返回函数
+ * @brief 主循环
  * @param 无
- * @note 模拟按下【返回】按键
+ * @note 主循环，用于显示UI。
  * @return 无
  */
-void OLED_UI_Back(void){
-	BackEventMenuItem();
-}
+void OLED_UI_MainLoop(void)
+{
+    //初始化检查
+    OLED_UI_InitCheck();
+    //处理输入
+    OLED_UI_HandleInput_MainLoop();
 
-/**
- * @brief 进入并运行回调函数
- * @param 无
- * @return 无
- * @note 在OLED_UI的主循环函数中调用
- */
-void RunCurrentCallBackFunction(void){
-	//KeyEnterFlag == FLAGSTART这个条件表示enter被触发
-	if(KeyEnterFlag == FLAGSTART){
-		//检查回调函数指针是否为空，如果不为空，则执行回调函数
-		if (CurrentMenuPage->General_MenuItems[CurrentMenuPage->_ActiveMenuID].General_callback != NULL){
-			//执行回调函数
-			CurrentMenuPage->General_MenuItems[CurrentMenuPage->_ActiveMenuID].General_callback();	
-		}
-		//在回调函数执行完毕之后，将KeyEnterFlag复位。
-		ResetEnterFlag();
-		Encoder_Enable();  // 使能编码器
-	}
-}
-/**
- * @brief 将当前光标区域与目标光标区域都设置为0
- * @param 无
- * @return 无
- */
-void SetCursorZero(void){
-	OLED_UI_Cursor.TargetArea.X = 0;
-	OLED_UI_Cursor.TargetArea.Y = 0;
-	OLED_UI_Cursor.TargetArea.Width = 0;
-	OLED_UI_Cursor.TargetArea.Height = 0;
-	OLED_UI_Cursor.CurrentArea.X = 0;
-	OLED_UI_Cursor.CurrentArea.Y = 0;
-	OLED_UI_Cursor.CurrentArea.Width = 0;
-	OLED_UI_Cursor.CurrentArea.Height = 0;
-}
-/**
- * @brief 设置窗口大小
- * @param Width 窗口宽度
- * @param Height 窗口高度
- * @return 无
- */
-void OLED_UI_CreateWindow(MenuWindow* window){
-	//将窗口标志位设置为true，表示开始窗口效果
-	OLED_SustainCounter.SustainFlag = true;
-	//将当前进度条长度置零
-	OLED_UI_ProbWidth.CurrentDistance = 0;
-	//重置窗口效果时间计数器
-	OLED_SustainCounter.count = 0;
-	//如果窗口标志位被置位，则设置目标窗口的位置到屏幕中央
-	
-	//设置目标窗口的位置为屏幕中央居中显示
-	OLED_UI_Window.TargetArea.Width = window->General_Width;
-	OLED_UI_Window.TargetArea.Height = window->General_Height;
-	OLED_UI_Window.TargetArea.X = (OLED_WIDTH - window->General_Width)/2;
-	OLED_UI_Window.TargetArea.Y = (OLED_HEIGHT - window->General_Height)/2;
-	window->_LineSlip = 0;
-	//将当前窗口指针指向window
-	CurrentWindow = window;
-	
-}
+    //设置UI元素位置
+    OLED_UI_SetElementLocation();
+
+    //打印UI元素（包含刷新屏幕）
+    OLED_UI_PrintElement();
+
+    //悬浮窗口显示
 
 
-
-
-/**
- * @brief 运行渐隐效果
- * @param 无
- * @return 无
- */
-void RunFadeOut(void){
-
-	static uint8_t FadeOut_Seq;
-	static uint32_t FadeOut_Seq_StartTick;
-	static int16_t FadeOut_x0, FadeOut_y0, FadeOut_width, FadeOut_height;
-
-	/*如果当前的FadeOutFlag已经被置位，则说明正在运行渐隐效果。
-	当前在运行渐隐效果的前提条件有2个：
-	1.【在按下确认键的情况下】【如果当前选中菜单项没有回调函数，但是有子菜单】，此时 FadeOutFlag == ENTER_FLAGSTART
-	2.【在按下返回键的情况下】【如果当前菜单的父菜单不为空】，此时 FadeOutFlag == BACK_FLAGSTART
-	*/
-	if(FadeOutFlag != FLAGEND){
-		if (FadeOut_Seq != 0){	//如果当前不是步骤0
-			if ((FadeOut_Seq_StartTick + FADEOUT_TIME) < HAL_GetTick()){	//计时FADEOUT_TIME毫秒
-				FadeOut_Seq++;
-				FadeOut_Seq_StartTick = HAL_GetTick();	//记录每一步的开始时间
-			}
-		}
-		if (FadeOut_Seq == 0){	//步骤0：计算效果参数
-			//如果当前菜单是列表类
-			if(CurrentMenuPage->General_MenuType == MENU_TYPE_LIST){
-				//当前菜单项的页面类型是列表类的情况下，按下了确认按键
-				if(FadeOutFlag == ENTER_FLAGSTART){
-					//（在有子菜单的情况下）如果当前页面的当前子菜单项的页面类型是列表类
-					if(CurrentMenuPage->General_MenuItems[CurrentMenuPage->_ActiveMenuID].General_SubMenuPage->General_MenuType == MENU_TYPE_LIST){
-						//只清除当前页面区域
-						//OLED_UI_FadeoutCurrentArea(CurrentMenuPage->List_MenuArea.X,CurrentMenuPage->List_MenuArea.Y,CurrentMenuPage->List_MenuArea.Width-5,CurrentMenuPage->List_MenuArea.Height-2);
-						FadeOut_x0 = CurrentMenuPage->List_MenuArea.X;
-						FadeOut_y0 = CurrentMenuPage->List_MenuArea.Y;
-						FadeOut_width = CurrentMenuPage->List_MenuArea.Width-5;
-						FadeOut_height = CurrentMenuPage->List_MenuArea.Height-2;
-					}else{
-						//清除全部区域
-						//OLED_UI_FadeoutAllArea();
-						FadeOut_x0 = 0;
-						FadeOut_y0 = 0;
-						FadeOut_width = OLED_WIDTH;
-						FadeOut_height = OLED_HEIGHT;
-					}
-				}
-				//当前菜单项的页面类型是列表类的情况下，按下了取消按键
-				if(FadeOutFlag == BACK_FLAGSTART) {
-					//如果当前页面的父菜单项的页面类型是列表类
-					if(CurrentMenuPage->General_ParentMenuPage->General_MenuType == MENU_TYPE_LIST){
-						//只清除当前页面区域
-						//OLED_UI_FadeoutCurrentArea(CurrentMenuPage->List_MenuArea.X,CurrentMenuPage->List_MenuArea.Y,CurrentMenuPage->List_MenuArea.Width-5,CurrentMenuPage->List_MenuArea.Height-2);
-						FadeOut_x0 = CurrentMenuPage->List_MenuArea.X;
-						FadeOut_y0 = CurrentMenuPage->List_MenuArea.Y;
-						FadeOut_width = CurrentMenuPage->List_MenuArea.Width-5;
-						FadeOut_height = CurrentMenuPage->List_MenuArea.Height-2;
-
-					}else{
-						//清除全部区域
-						//OLED_UI_FadeoutAllArea();
-						FadeOut_x0 = 0;
-						FadeOut_y0 = 0;
-						FadeOut_width = OLED_WIDTH;
-						FadeOut_height = OLED_HEIGHT;
-					}
-				}
-
-			}else //如果当前菜单类型是磁贴类
-			if(CurrentMenuPage->General_MenuType == MENU_TYPE_TILES){
-				//清除全部区域
-				//OLED_UI_FadeoutAllArea();
-				FadeOut_x0 = 0;
-				FadeOut_y0 = 0;
-				FadeOut_width = OLED_WIDTH;
-				FadeOut_height = OLED_HEIGHT;
-
-			}
-			FadeOut_Seq++;
-		}else
-		if(FadeOut_Seq == 6){	//步骤6：渐隐完毕，复位变量
-			OLED_UI_FadeOut_Masking(FadeOut_x0, FadeOut_y0, FadeOut_width, FadeOut_height, 5);	//这一帧应与步骤5一样显示全黑
-			FadeOut_Seq = 0;
-			//如果当前菜单是列表类
-			if(CurrentMenuPage->General_MenuType == MENU_TYPE_LIST){
-				//当前菜单项的页面类型是列表类的情况下，按下了确认按键
-				if(FadeOutFlag == ENTER_FLAGSTART){
-					//（在有子菜单的情况下）如果当前页面的当前子菜单项的页面类型是列表类
-					if(CurrentMenuPage->General_MenuItems[CurrentMenuPage->_ActiveMenuID].General_SubMenuPage->General_MenuType == MENU_TYPE_LIST){
-					}else{
-						//将滚动条的当前高度设为0
-						OLED_UI_ScrollBarHeight.CurrentDistance = 0;
-					}
-
-					//将当前菜单的位置保存，以便返回时恢复
-					CurrentMenuPage->_StartPoint.X = OLED_UI_PageStartPoint.TargetPoint.X;
-					CurrentMenuPage->_StartPoint.Y = OLED_UI_PageStartPoint.TargetPoint.Y;
-
-					//将当前菜单的指针指向子菜单
-					CurrentMenuPage = CurrentMenuPage->General_MenuItems[CurrentMenuPage->_ActiveMenuID].General_SubMenuPage;
-					//对当前子菜单进行初始化
-					CurrentMenuPageInit();
-				}
-				//当前菜单项的页面类型是列表类的情况下，按下了取消按键
-				if(FadeOutFlag == BACK_FLAGSTART) {
-					//如果当前页面的父菜单项的页面类型是列表类
-					if(CurrentMenuPage->General_ParentMenuPage->General_MenuType == MENU_TYPE_LIST){
-					}else{
-						//将滚动条的当前高度设为0
-						OLED_UI_ScrollBarHeight.CurrentDistance = 0;
-					}
-					//将当前菜单的指针指向父菜单
-					CurrentMenuPage = CurrentMenuPage->General_ParentMenuPage;
-					//将当前菜单的位置等参数恢复
-					CurrentMenuPageBackUp();
-				}
-
-				//将FadeOutFlag复位
-				ResetFadeOutFlag();
-				//将当前光标区域与目标光标区域都设置为0
-				SetCursorZero();
-
-			}else //如果当前菜单类型是磁贴类
-			if(CurrentMenuPage->General_MenuType == MENU_TYPE_TILES){
-				//当前菜单项的页面类型是磁贴类的情况下，按下了确认操作
-				if(FadeOutFlag == ENTER_FLAGSTART){
-					//将当前菜单的位置保存，以便返回时恢复
-					CurrentMenuPage->_StartPoint.X = OLED_UI_PageStartPoint.TargetPoint.X;
-					CurrentMenuPage->_StartPoint.Y = OLED_UI_PageStartPoint.TargetPoint.Y;
-					//将当前菜单的指针指向子菜单
-					CurrentMenuPage = CurrentMenuPage->General_MenuItems[CurrentMenuPage->_ActiveMenuID].General_SubMenuPage;
-					//对当前子菜单进行初始化
-					CurrentMenuPageInit();
-
-				}
-				//当前菜单项的页面类型是磁贴类的情况下，按下了返回操作
-				if(FadeOutFlag == BACK_FLAGSTART){
-					//将当前菜单的指针指向父菜单
-					CurrentMenuPage = CurrentMenuPage->General_ParentMenuPage;
-					//将当前菜单的位置等参数恢复
-					CurrentMenuPageBackUp();
-				}
-				//将滚动条的当前高度设为0
-				OLED_UI_ScrollBarHeight.CurrentDistance = 0;
-				//将当前光标区域与目标光标区域都设置为0
-				SetCursorZero();
-				//将FadeOutFlag复位
-				ResetFadeOutFlag();
-			}
-			//将当前光标区域与目标光标区域都设置为0
-			SetCursorZero();
-			//将FadeOutFlag复位
-			ResetFadeOutFlag();
-			// 使能编码器
-			Encoder_Enable();
-		}
-		else{					//步骤1-5：渐隐中
-			OLED_UI_FadeOut_Masking(FadeOut_x0, FadeOut_y0, FadeOut_width, FadeOut_height, FadeOut_Seq);
-		}
-	}
-}
-/**
- * @brief 打印菜单元素并根据目标值改变元素的参数
- * @param 无
- * @return 无
- */
-void MoveMenuElements(void){
-
-	//设置目标光标区域
-	SetTargetCursor();
-	//设置目标菜单边框
-	SetTargetMenuFrame();
-	//设置目标进度条长度
-	SetTargetProbWidth();
-	//设置目标滚动条高度
-	SetTargetScrollBarHeight();
-
-
-	// 改变菜单起始元素的坐标
-	ChangePoint(&OLED_UI_PageStartPoint);
-	// 改变菜单项的行间距
-	ChangeDistance(&OLED_UI_LineStep);
-	// 改变滚动条高度
-	ChangeDistance(&OLED_UI_ScrollBarHeight);
-	
-	
-
-	// 改变菜单边框参数
-	ChangeArea(&OLED_UI_MenuFrame);
-
-	// 打印菜单页面的元素
-	PrintMenuElements();
-
-	//改变光标的参数
-	ChangeArea(&OLED_UI_Cursor);
-	//显示光标
-	ReverseCoordinate(OLED_UI_Cursor.CurrentArea.X,OLED_UI_Cursor.CurrentArea.Y,OLED_UI_Cursor.CurrentArea.Width,OLED_UI_Cursor.CurrentArea.Height,CurrentMenuPage->General_CursorStyle);
-	//设置颜色模式
-	OLED_SetColorMode(ColorMode);
-
-	OLED_Brightness(OLED_UI_Brightness);
-
-	ChangeDistance(&OLED_UI_ProbWidth);
-	// 改变窗口参数
-	ChangeArea(&OLED_UI_Window);
-	// 绘制窗口
-	OLED_DrawWindow();
-
-
-	
-	
-}
-
-/**
- * @brief OLED_UI的主循环函数
- * @param 无
- * @note 该函数需要放在主循环中调用，以便实现UI的刷新
- * @return 无
- */
-void OLED_UI_MainLoop(void){
-
-	
-
-	//清屏
-	OLED_Clear();
-
-	
-
-	//移动菜单元素
-	MoveMenuElements();
-
-	
-	//当互斥锁被置位时，运行当前菜单项的回调函数
-	RunCurrentCallBackFunction();
-	
-	//当渐隐互斥锁被置位时，运行渐隐效果
-	RunFadeOut();
-
-	//显示FPS
-	OLED_UI_ShowFPS();
-	//刷屏
-	OLED_Update();
-	
-}
-
-
-
-
-/**
- * @brief  OLED_UI的中断函数，内部包含需在中断内处理的任务
- * @param  无
- * @return 无
- */
-void OLED_UI_InterruptHandler(void){
-	// 获取当前屏幕刷新率
-    GetFPS();
     
-	// 如果当前有正在执行的回调函数，则不处理中断内的任务
-    if(GetEnterFlag() && GetFadeoutFlag()){
-    	
-
-		//获取_ActiveMenuID的变化值，_ActiveMenuID的值不变，并记录了按键的变化
-		MenuID_Type IncreaseID = OLED_KeyAndEncoderRecord();
-
-
-		//如果窗口停留的标志位为true，说明当前正在运行窗口
-		if(OLED_SustainCounter.SustainFlag == true){
-			//如果编码器或是按键的变化值不是0
-			if(IncreaseID.Unsafe != 0){
-				//窗口计数值清零
-				OLED_SustainCounter.count = 0;
-			}
-			//如果窗口有数据
-			int8_t DataStyle = GetWindowDataStyle(CurrentWindow->Prob_Data_Int,CurrentWindow->Prob_Data_Float);
-			if(DataStyle != WINDOW_DATA_STYLE_NONE){
-				if(DataStyle == WINDOW_DATA_STYLE_INT){
-					*CurrentWindow->Prob_Data_Int += (IncreaseID.Unsafe * CurrentWindow->Prob_DataStep);
-					if(*CurrentWindow->Prob_Data_Int < CurrentWindow->Prob_MinData) {*CurrentWindow->Prob_Data_Int = CurrentWindow->Prob_MinData;}
-					if(*CurrentWindow->Prob_Data_Int > CurrentWindow->Prob_MaxData) {*CurrentWindow->Prob_Data_Int = CurrentWindow->Prob_MaxData;}
-				}else{
-					*CurrentWindow->Prob_Data_Float += (IncreaseID.Unsafe * CurrentWindow->Prob_DataStep);
-					if(*CurrentWindow->Prob_Data_Float < CurrentWindow->Prob_MinData) {*CurrentWindow->Prob_Data_Float = CurrentWindow->Prob_MinData;}
-					if(*CurrentWindow->Prob_Data_Float > CurrentWindow->Prob_MaxData) {*CurrentWindow->Prob_Data_Float = CurrentWindow->Prob_MaxData;}
-				}
-			}
-			IncreaseID.Safe = 0;
-		}
-		 
-		//如果变化值小于0，那么相当于按下IncreaseID.Safe次【上】按键
-		if(IncreaseID.Safe < 0 ){
-			for(int i = 0; i < -IncreaseID.Safe; i++){
-				//如果当前菜单类型是列表类
-				if(CurrentMenuPage->General_MenuType == MENU_TYPE_LIST){
-					/*********************按下【上】按键进行的操作*************************/
-					//如果当前菜单页面的光标已经到达最顶部的槽位,并且当前菜单项不是第一个菜单项，那么就向下移动菜单项的目标位置
-           			if(CurrentMenuPage->_Slot == 0 && CurrentMenuPage->_ActiveMenuID !=0){
-						MenuItemsMoveDown();
-
-					}
-					//如果光标还没有到达最顶部的槽位，那么就向上移动槽位
-					if(CurrentMenuPage->_Slot > 0){
-						CurrentMenuPage->_Slot--;
-					}
-					CurrentMenuPage->_ActiveMenuID--;
-				}
-				//如果当前菜单类型是列表类
-				if(CurrentMenuPage->General_MenuType == MENU_TYPE_TILES){
-					CurrentMenuPage->_ActiveMenuID--;
-					MenuItemsMoveRight();
-				}
-			}
-		}
-		if(IncreaseID.Safe > 0){
-			for(int i = 0; i < IncreaseID.Safe; i++){
-				/*********************按下【下】按键进行的操作*************************/
-					if(CurrentMenuPage->General_MenuType == MENU_TYPE_LIST){
-					//如果当前菜单页面的光标已经到达最底部的槽位,并且当前菜单项不是最后一个菜单项，那么就向上移动菜单项的目标位置
-					if(CurrentMenuPage->_Slot == GetCurrentMenuPageMaxSlotNum()-1 && CurrentMenuPage->_ActiveMenuID != GetMenuItemNum(CurrentMenuPage->General_MenuItems)){
-						MenuItemsMoveUp();
-
-					}
-					//如果光标还没有到达最底部的槽位，那么就向下移动槽位
-					if(CurrentMenuPage->_Slot < GetCurrentMenuPageMaxSlotNum()-1){
-						CurrentMenuPage->_Slot++;
-					}
-					CurrentMenuPage->_ActiveMenuID++;
-				}
-				//如果当前菜单类型是列表类
-				if(CurrentMenuPage->General_MenuType == MENU_TYPE_TILES){
-					CurrentMenuPage->_ActiveMenuID++;
-					MenuItemsMoveLeft();
-				}
-
-			}
-		}
-		
-	
-    	
-		//如果检测到【返回】按键的上一状态与这次的状态不同，且这一状态是抬起状态，说明用户按下了【返回】按键，并且刚刚才抬起
-		if(OLED_UI_Key.Back != OLED_UI_LastKey.Back && OLED_UI_Key.Back == 1){
-			//如果当前没有运行窗口
-			if(OLED_SustainCounter.SustainFlag == false){
-				BackEventMenuItem();
-			}else{
-				OLED_SustainCounter.count = (int16_t)(CurrentWindow->General_ContinueTime * 50);
-			}
-			
-		}
-		//如果检测到【确认】按键的上一状态与这次的状态不同，且这一状态是抬起状态，说明用户按下了【确认】按键，并且刚刚才抬起
-		if(OLED_UI_Key.Enter != OLED_UI_LastKey.Enter && OLED_UI_Key.Enter == 1){
-			if(OLED_SustainCounter.SustainFlag == false){
-				EnterEventMenuItem();
-				if (CurrentMenuPage->General_MenuItems[CurrentMenuPage->_ActiveMenuID].List_BoolRadioBox != NULL) {
-				    *CurrentMenuPage->General_MenuItems[CurrentMenuPage->_ActiveMenuID].List_BoolRadioBox = !(*CurrentMenuPage->General_MenuItems[CurrentMenuPage->_ActiveMenuID].List_BoolRadioBox);
-				}
-			}else{
-				OLED_SustainCounter.count = 0;
-			}
-		}
-		
-	}
-
-	//如果当前正在运行窗口，那么计数
-	if(OLED_SustainCounter.SustainFlag == true){
-		OLED_SustainCounter.count++;
-	}
-	if(CurrentWindow != NULL){
-		if(OLED_SustainCounter.count >= (int16_t)(CurrentWindow->General_ContinueTime * 50)){
-			OLED_SustainCounter.SustainFlag = false;
-			OLED_SustainCounter.count = 0;
-		}
-	}
+    
 }
-#endif
+
+
+
+/**
+ * @brief 初始化OLED UI
+ * @param 无
+ * @note 初始化OLED UI，包括初始化OLED、初始化定时器、初始化编码器、初始化按键。
+ * @return 无
+ */
+void OLED_UI_Init(MenuPage* Page)
+{
+    OLED_Init();
+    OLED_UI_TimerInit();
+    OLED_UI_EncoderInit();
+    OLED_UI_KeyInit();
+
+    //设置当前页面的结构体指针
+	CurrentMenuPage = Page;	//设置当前页面的结构体指针
+
+    //初始化当前页面
+    OLED_UI_CurrentMenuPageInit();
+}
+
+/**
+ * @brief 对上/下按键的长时间按下事件
+ * @param 无
+ * @note 该函数用于判断上/下按键是否长时间按下。
+ * @return 无
+ */
+void OLED_UI_UpAndDownLongPressEvent(void)
+{
+    static int16_t Key_UpPressCount = 0;
+    static int16_t Key_DownPressCount = 0;
+    // 如果上下按键同时被按下，则不处理
+    if(OLED_UI_Up._CurrentStatus == 0 && OLED_UI_Down._CurrentStatus == 0){
+        return;
+    }
+    // 如果当前上键正在被按下
+    if(OLED_UI_Up._CurrentStatus == 0){
+        Key_UpPressCount ++;
+    }else{
+        Key_UpPressCount = 0;
+    }
+    if(OLED_UI_Down._CurrentStatus == 0){
+        Key_DownPressCount ++;
+    }else{
+        Key_DownPressCount = 0;
+    }
+    // 防止数据溢出
+    if(Key_UpPressCount >= 1000){
+        Key_UpPressCount = 1000;
+    }
+    if(Key_DownPressCount >= 1000){
+        Key_DownPressCount = 1000;
+    }
+    if(Key_UpPressCount > OLED_UI_SHORT_HOLD_TIME_MS/OLED_UI_INTERRUPT_TIME || Key_DownPressCount > OLED_UI_SHORT_HOLD_TIME_MS/OLED_UI_INTERRUPT_TIME){
+        OLED_UI_UpDownLongPress.Counter ++;
+        if(OLED_UI_UpDownLongPress.Counter >= OLED_UI_PRESSED_SHORT){
+            if(Key_DownPressCount > OLED_UI_SHORT_HOLD_TIME_MS/OLED_UI_INTERRUPT_TIME){
+                OLED_UI_UpDownLongPress.DeltaData = 1;
+            }else{
+                OLED_UI_UpDownLongPress.DeltaData = -1;
+            }
+            OLED_UI_UpDownLongPress.Counter = 0;
+        }
+    }
+    if(Key_DownPressCount > OLED_UI_LONG_HOLD_TIME_MS/OLED_UI_INTERRUPT_TIME || Key_UpPressCount > OLED_UI_LONG_HOLD_TIME_MS/OLED_UI_INTERRUPT_TIME){
+        OLED_UI_UpDownLongPress.Counter ++;
+        if(OLED_UI_UpDownLongPress.Counter >=OLED_UI_PRESSED_LONG){
+            if(Key_DownPressCount > OLED_UI_LONG_HOLD_TIME_MS/OLED_UI_INTERRUPT_TIME){
+                OLED_UI_UpDownLongPress.DeltaData = 1;
+            }else{
+                OLED_UI_UpDownLongPress.DeltaData = -1;
+            }
+            
+            OLED_UI_UpDownLongPress.Counter = 0;
+        }
+    }
+}
+
+/**
+ * @brief 需要在定时器中断中调用该函数
+ * @param 无
+ * @note 该函数用于接受编码器与按键的输入。
+ * @return 无
+ */
+void OLED_UI_InterruptHandler(void)
+{
+    
+    //帧数计数器
+    OLED_UI_CountFPS_Interrupt();
+    //处理输入
+    OLED_UI_HandleInput_Interrupt();
+    // 上下按键的短时间按下和长时间按下判定
+    OLED_UI_UpAndDownLongPressEvent();
+
+    // 如果当前不为空
+    //如果当前正在运行窗口，那么计数
+	if(OLED_UI_WindowStatus.SustainFlag == true){
+		OLED_UI_WindowStatus.Counter++;
+	}
+
+}
+
+
+
+
+
+        /*===============================OLED-UI实现函数==============================*/
+    /*===================================OLED-UI实现函数==================================*/
+/*=======================================OLED-UI实现函数======================================*/
+
+
+
+
 
 
