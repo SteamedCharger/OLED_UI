@@ -3,7 +3,7 @@
 
 
 
-#include "stm32f10x.h"         
+#include "stm32g0xx.h"
 #include <string.h>
 #include <math.h>
 #include <stdbool.h>

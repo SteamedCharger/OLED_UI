@@ -19,16 +19,17 @@ void usermain()
 	// init
 	//开启外围器件
 	// 注意：开启外围器件可能导致电压波动，不要在此操作之后立即读写Flash
-	HAL_GPIO_WritePin(PWRON_GPIO_Port, PWRON_Pin, 0);
+	HAL_GPIO_WritePin(PWRON_GPIO_Port, PWRON_Pin, 1);
 
-	BTN_init();
+	//BTN_init();
 
 
-	OLED_UI_Init(&MainMenuPage);
+	//OLED_UI_Init(&MainMenuPage);
+	OLED_UI_Init(&SubMenuPage5);
 
 	while(1)
 	{
-		BtnTask();
+		//BtnTask();
 		OLED_UI_MainLoop();
 	}
 }

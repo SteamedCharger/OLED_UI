@@ -995,7 +995,7 @@ void OLED_UI_HandleInput_MainLoop(void){
             break;
         case OLED_UI_KEY_DOUBLE_CLICK:
         /*============================双击按键处理逻辑==============================*/
-
+		OLED_UI_DeltaMenuID += 1;
 
 
 
@@ -1003,7 +1003,11 @@ void OLED_UI_HandleInput_MainLoop(void){
             break;
         case OLED_UI_KEY_LONG_PRESS:
         /*============================长按按键处理逻辑==============================*/
-
+		if(OLED_UI_WindowStatus.SustainFlag == false){
+			OLED_UI_BackTask();
+		}else{
+			OLED_UI_WindowStatus.Counter = CurrentWindow->General_StayTime;
+		}
 
 
 
@@ -1922,20 +1926,26 @@ void OLED_UI_InitCheck(void)
  */
 void OLED_UI_PrintElement(void)
 {
+	//0us
     //清除显存
     OLED_Clear();
-
+    //+128.8us
     // 显示帧数
     OLED_UI_ShowFPS();
+    //+180us
+
 
     // 显示菜单项
     OLED_UI_PrintMenuItems();
+    //+3.6ms
 
     // 显示窗口
     OLED_UI_DrawWindow();
+    //+1.17us
 
     //刷屏
     OLED_Update();
+    //+12.28ms
 
     //如果屏幕发生变化，记录有效帧
     if(OLED_IfChangedScreen()){
@@ -1962,16 +1972,23 @@ void OLED_UI_PrintElement(void)
  */
 void OLED_UI_MainLoop(void)
 {
+	//0us
+
     //初始化检查
     OLED_UI_InitCheck();
     //处理输入
     OLED_UI_HandleInput_MainLoop();
 
+
+
     //设置UI元素位置
     OLED_UI_SetElementLocation();
 
+    //+117us
+
     //打印UI元素（包含刷新屏幕）
     OLED_UI_PrintElement();
+
 
     //悬浮窗口显示
 
@@ -1992,8 +2009,8 @@ void OLED_UI_Init(MenuPage* Page)
 {
     OLED_Init();
     OLED_UI_TimerInit();
-    OLED_UI_EncoderInit();
-    OLED_UI_KeyInit();
+    //OLED_UI_EncoderInit();	//测试板上没有编码器
+    //OLED_UI_KeyInit();	//已由CubeIDE自动生成
 
     //设置当前页面的结构体指针
 	CurrentMenuPage = Page;	//设置当前页面的结构体指针

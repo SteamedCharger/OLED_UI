@@ -1,6 +1,6 @@
 #include "OLED_UI_MenuData.h"
 
-#define SPEED 3.0f
+#define SPEED 5.0f
 #define ANIMATION  UNLINEAR
 extern MenuPage SubMenuPage1, SubMenuPage2, MainMenuPage;
 bool test1;
@@ -19,7 +19,7 @@ void callback1(){
 MenuPage SubMenuPage1 = {
 
     // 通用属性
-    .General_MenuArea = {40, 40, 50, 34},
+    .General_MenuArea = {40, 0, 50, 34},
     .General_MenuFrameStyle = MENU_FRAME_ROUNDRECTANGLE,
     .General_InitMenuID = 1,
     .General_InitSlot = 0,
@@ -53,7 +53,7 @@ MenuPage SubMenuPage1 = {
 MenuPage SubMenuPage2 = {
 
     // 通用属性
-    .General_MenuArea = {10, 10, 100, 98},
+    .General_MenuArea = {10, 10, 100, 50},
     .General_MenuFrameStyle = MENU_FRAME_ROUNDRECTANGLE,
     .General_InitMenuID = 1,
     .General_InitSlot = 0,
@@ -86,7 +86,7 @@ MenuPage SubMenuPage2 = {
 MenuPage SubMenuPage3 = {
 
     // 通用属性
-    .General_MenuArea = {10, 10, 100, 98},
+    .General_MenuArea = {10, 10, 100, 50},
     .General_MenuFrameStyle = MENU_FRAME_ROUNDRECTANGLE,
     .General_InitMenuID = 1,
     .General_InitSlot = 0,
@@ -119,7 +119,7 @@ MenuPage SubMenuPage3 = {
 MenuPage SubMenuPage4 = {
 
     // 通用属性
-    .General_MenuArea = {10, 10, 100, 98},
+    .General_MenuArea = {10, 10, 100, 50},
     .General_MenuFrameStyle = MENU_FRAME_ROUNDRECTANGLE,
     .General_InitMenuID = 1,
     .General_InitSlot = 0,
@@ -151,7 +151,7 @@ MenuPage SubMenuPage4 = {
 MenuPage SubMenuPage5 = {
 
     // 通用属性
-    .General_MenuArea = {1, 1, 126, 126},
+    .General_MenuArea = {1, 1, 126, 62},
     .General_MenuFrameStyle = MENU_FRAME_NONE,
     .General_InitMenuID = 0,
     .General_InitSlot = 0,
@@ -165,8 +165,8 @@ MenuPage SubMenuPage5 = {
     .General_ShowAuxiliaryFunction = NULL,
     .General_StartPoint = {128/2-64/2,10},
     // 特殊属性
-    .Tiles_TileHeight = 64,
-    .Tiles_TileWidth = 64,
+    .Tiles_TileHeight = 32,
+    .Tiles_TileWidth = 32,
     .Tiles_FontTopDistance = 100,
     .Tiles_ScrollBarTopDistance = 87,
 
@@ -230,8 +230,8 @@ void OLED_MAIN_AUX(void){
 MenuPage MainMenuPage = {
 
     // 通用属性
-    .General_MenuArea = {10, 70, 100, 50},
-    .General_MenuFrameStyle = MENU_FRAME_ROUNDRECTANGLE,
+    .General_MenuArea = {1, 9, 126, 54},
+    .General_MenuFrameStyle = MENU_FRAME_NONE,
     .General_InitMenuID = 0,
     .General_InitSlot = 0,
     .General_MenuType = MENU_TYPE_LIST,

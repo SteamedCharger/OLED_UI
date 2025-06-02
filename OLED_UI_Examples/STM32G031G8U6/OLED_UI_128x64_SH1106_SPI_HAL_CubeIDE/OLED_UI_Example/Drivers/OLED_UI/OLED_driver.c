@@ -6,6 +6,7 @@
 /*========================================================================*/
 
 #include "OLED_driver.h"
+#include "main.h"
 
 /*========================================================================*/
 /*================================[可配置宏]===============================*/
@@ -16,21 +17,21 @@
 #define IF_ENABLE_DYNAMIC_REFRESH       (false)
 #define DYNAMIC_REFRESH_LENGHT          (16)   // 动态刷新区块的长度，单位为像素。
 
-#define OLED_HEIGHT_DRIVER	        	(128)					//OLED像素的高度
+#define OLED_HEIGHT_DRIVER	        	(64)					//OLED像素的高度
 #define OLED_WIDTH_DRIVER		    	(128)					//OLED像素的宽度
 #define OLED_PAGE_DRIVER				(OLED_HEIGHT_DRIVER/8)	//OLED的页数（由高度自动计算）
 
 #define OLED_CMD  0	//写命令
 #define OLED_DATA 1	//写数据
 
-#define OLED_CS_Clr()   (GPIOA->BSRR = GPIO_Pin_4 << 16)  // 拉低 CS
-#define OLED_CS_Set()   (GPIOA->BSRR = GPIO_Pin_4)        // 拉高 CS
+#define OLED_CS_Clr()   ;  // 拉低 CS		//使用硬件CS
+#define OLED_CS_Set()   ;        // 拉高 CS
 
-#define OLED_DC_Clr()   (GPIOA->BSRR = GPIO_Pin_3 << 16)  // 拉低 DC (命令模式)
-#define OLED_DC_Set()   (GPIOA->BSRR = GPIO_Pin_3)        // 拉高 DC (数据模式)
+#define OLED_DC_Clr()   (HAL_GPIO_WritePin(OLED_DC_GPIO_Port, OLED_DC_Pin, 0))  // 拉低 DC (命令模式)
+#define OLED_DC_Set()   (HAL_GPIO_WritePin(OLED_DC_GPIO_Port, OLED_DC_Pin, 1))        // 拉高 DC (数据模式)
 
-#define OLED_RES_Clr()  (GPIOA->BSRR = GPIO_Pin_2 << 16)  // 复位
-#define OLED_RES_Set()  (GPIOA->BSRR = GPIO_Pin_2)        // 释放复位
+#define OLED_RES_Clr()  (HAL_GPIO_WritePin(OLED_RES_GPIO_Port, OLED_RES_Pin, 0))  // 复位
+#define OLED_RES_Set()  (HAL_GPIO_WritePin(OLED_RES_GPIO_Port, OLED_RES_Pin, 1))        // 释放复位
 
 /*========================================================================*/
 /*========================================================================*/
@@ -75,6 +76,8 @@ bool OLED_IfChangedScreen(void){
   */
 void OLED_DelayMs(uint32_t xms)
 {
+	HAL_Delay(xms);	//使用HAL库的延时函数
+	/*
 	while(xms--)
 	{
 		SysTick->LOAD = 72 * 1000;				//设置定时器重装值
@@ -82,53 +85,57 @@ void OLED_DelayMs(uint32_t xms)
 		SysTick->CTRL = 0x00000005;				//设置时钟源为HCLK，启动定时器
 		while(!(SysTick->CTRL & 0x00010000));	//等待计数到0
 		SysTick->CTRL = 0x00000004;				//关闭定时器
-	}
+	}*/
 }
 /**
  * @brief  初始化 SPI1 作为主机
  */
 void SPI1_Init(void)
 {
-    // 开启 SPI1 和 GPIOA 时钟
-    RCC_APB2PeriphClockCmd(RCC_APB2Periph_SPI1 | RCC_APB2Periph_GPIOA, ENABLE);
-
-    // 配置 SPI1 (SCK: PA5, MOSI: PA7)
-    GPIO_InitTypeDef GPIO_InitStructure;
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_5 | GPIO_Pin_7;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;  // 复用推挽输出
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_Init(GPIOA, &GPIO_InitStructure);
-
-    // 配置 CS (PA4), DC (PA3), RES (PA2) 作为推挽输出
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_4 | GPIO_Pin_3 | GPIO_Pin_2;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-    GPIO_Init(GPIOA, &GPIO_InitStructure);
-
-    /*SPI初始化*/
-	SPI_InitTypeDef SPI_InitStructure;						//定义结构体变量
-	SPI_InitStructure.SPI_Mode = SPI_Mode_Master;			//模式，选择为SPI主模式
-	SPI_InitStructure.SPI_Direction = SPI_Direction_2Lines_FullDuplex;	//方向，选择2线全双工
-	SPI_InitStructure.SPI_DataSize = SPI_DataSize_8b;		//数据宽度，选择为8位
-	SPI_InitStructure.SPI_FirstBit = SPI_FirstBit_MSB;		//先行位，选择高位先行
-	SPI_InitStructure.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_4;	//波特率分频，选择分频
-	SPI_InitStructure.SPI_CPOL = SPI_CPOL_Low;				//SPI极性，选择低极性
-	SPI_InitStructure.SPI_CPHA = SPI_CPHA_1Edge;			//SPI相位，选择第一个时钟边沿采样，极性和相位决定选择SPI模式0
-	SPI_InitStructure.SPI_NSS = SPI_NSS_Soft;				//NSS，选择由软件控制
-	SPI_InitStructure.SPI_CRCPolynomial = 7;				//CRC多项式，暂时用不到，给默认值7
-	SPI_Init(SPI1, &SPI_InitStructure);						//将结构体变量交给SPI_Init，配置SPI1
-	
-    SPI_Cmd(SPI1, ENABLE);  // 使能 SPI1
+//    // 开启 SPI1 和 GPIOA 时钟
+//    RCC_APB2PeriphClockCmd(RCC_APB2Periph_SPI1 | RCC_APB2Periph_GPIOA, ENABLE);
+//
+//    // 配置 SPI1 (SCK: PA5, MOSI: PA7)
+//    GPIO_InitTypeDef GPIO_InitStructure;
+//    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_5 | GPIO_Pin_7;
+//    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;  // 复用推挽输出
+//    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+//    GPIO_Init(GPIOA, &GPIO_InitStructure);
+//
+//    // 配置 CS (PA4), DC (PA3), RES (PA2) 作为推挽输出
+//    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_4 | GPIO_Pin_3 | GPIO_Pin_2;
+//    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+//    GPIO_Init(GPIOA, &GPIO_InitStructure);
+//
+//    /*SPI初始化*/
+//	SPI_InitTypeDef SPI_InitStructure;						//定义结构体变量
+//	SPI_InitStructure.SPI_Mode = SPI_Mode_Master;			//模式，选择为SPI主模式
+//	SPI_InitStructure.SPI_Direction = SPI_Direction_2Lines_FullDuplex;	//方向，选择2线全双工
+//	SPI_InitStructure.SPI_DataSize = SPI_DataSize_8b;		//数据宽度，选择为8位
+//	SPI_InitStructure.SPI_FirstBit = SPI_FirstBit_MSB;		//先行位，选择高位先行
+//	SPI_InitStructure.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_4;	//波特率分频，选择分频
+//	SPI_InitStructure.SPI_CPOL = SPI_CPOL_Low;				//SPI极性，选择低极性
+//	SPI_InitStructure.SPI_CPHA = SPI_CPHA_1Edge;			//SPI相位，选择第一个时钟边沿采样，极性和相位决定选择SPI模式0
+//	SPI_InitStructure.SPI_NSS = SPI_NSS_Soft;				//NSS，选择由软件控制
+//	SPI_InitStructure.SPI_CRCPolynomial = 7;				//CRC多项式，暂时用不到，给默认值7
+//	SPI_Init(SPI1, &SPI_InitStructure);						//将结构体变量交给SPI_Init，配置SPI1
+//
+//    SPI_Cmd(SPI1, ENABLE);  // 使能 SPI1
 }
 /**
  * @brief SPI1 发送一个字节
  * @param data 要发送的数据
  */
+extern SPI_HandleTypeDef hspi1;
 void SPI1_WriteByte(uint8_t data)
 {
+	/*
     while (!(SPI1->SR & SPI_I2S_FLAG_TXE));  // 等待 TXE 标志置位（发送缓冲区为空）
     SPI_I2S_SendData(SPI1, data);           // 发送数据
     while (!(SPI1->SR & SPI_I2S_FLAG_RXNE)); // 等待 RXNE 置位（接收缓冲区非空）
     (void)SPI_I2S_ReceiveData(SPI1);        // 读取数据清除 RXNE 标志
+    */
+	HAL_SPI_Transmit(&hspi1, &data, 1, 1000); // 发送数据
 }
 /**
  * @brief OLED写1字节数据
@@ -137,7 +144,7 @@ void SPI1_WriteByte(uint8_t data)
  */
 void OLED_Write_DATA(uint8_t data)
 {
-//    OLED_DC_Set();   // 设置为数据模式
+    OLED_DC_Set();   // 设置为数据模式
 //    OLED_CS_Clr();   // 选中 OLED
     SPI1_WriteByte(data);  // 通过硬件 SPI 发送数据
 //    OLED_CS_Set();   // 取消选中 OLED
@@ -152,7 +159,8 @@ void OLED_WriteDataArr(uint8_t *Data, uint8_t Count)
 {
 	OLED_DC_Set();    // 设置数据命令线为数据模式
     OLED_CS_Clr();    // 选中OLED
-	
+    HAL_SPI_Transmit(&hspi1, Data, Count, 1000);
+    /*
 	if (OLED_ColorMode) {
         for (uint8_t i = 0; i < Count; i++) {
             OLED_Write_DATA(Data[i]);
@@ -162,6 +170,7 @@ void OLED_WriteDataArr(uint8_t *Data, uint8_t Count)
             OLED_Write_DATA(~Data[i]);
         }
     }
+    */
 	OLED_CS_Set();    // 取消选中OLED
 }
 
@@ -191,7 +200,7 @@ void  OLED_Write_CMD(uint8_t cmd)
 void OLED_SetCursor(uint8_t Page, uint8_t X)
 {
 	/*可以在此调整X，以适应一些芯片X轴坐标的偏移*/
-	/*X += 2;*/
+	X += 2;
 	/*通过指令设置页地址和列地址*/
 	OLED_Write_CMD(0xB0 | Page);					//设置页位置
 	OLED_Write_CMD(0x10 | ((X & 0xF0) >> 4));	//设置X位置高4位
@@ -344,37 +353,40 @@ extern void OLED_Clear(void);
  */
 void OLED_Init(void)
 {
-	SPI1_Init();  // 初始化 SPI1
+	//SPI1_Init();  // 初始化 SPI1		//由CubeIDE自动生成代码完成初始化
 
     OLED_RES_Clr();  // 复位 OLED
     OLED_DelayMs(50);
     OLED_RES_Set();
-	OLED_Write_CMD(0xAE);//--turn off oled panel
-	OLED_Write_CMD(0xd5); // Set Frame Frequency
-	OLED_Write_CMD(0x50); // 104Hz
-	OLED_Write_CMD(0x20); // Set Memory Addressing Mode
-	OLED_Write_CMD(0x81); // Set Contrast Control
-	OLED_Write_CMD(0x4f);
-	OLED_Write_CMD(0xad); // Set DC/DC off
-	OLED_Write_CMD(0x8a);
+    OLED_DelayMs(100);
+	OLED_Write_CMD(0xAE);//display off
+	OLED_Write_CMD(0x02);//set lower column address
+	OLED_Write_CMD(0x10);//set higher column address
+	OLED_Write_CMD(0x40);//set display start line
+	OLED_Write_CMD(0xB0);//set page address
+	OLED_Write_CMD(0x81);//设置对比度（亮度）
+	OLED_Write_CMD(0xAA);//0x00-0xFF							//影响亮度：越高越亮
+	OLED_Write_CMD(0xA1);//set segment remap
+	OLED_Write_CMD(0xA6);//normal / reverse
+	OLED_Write_CMD(0xA8);//multiplex ratio
+	OLED_Write_CMD(0x3F);//duty = 1/64
+	OLED_Write_CMD(0xad);//set charge pump enable
+	OLED_Write_CMD(0x8b);// 0x8B 内供 VCC
+	OLED_Write_CMD(0x32);//0X30---0X33 set VPP 电荷泵电压 		//影响亮度：越高越亮
+	OLED_Write_CMD(0xC8);//Com scan direction
+	OLED_Write_CMD(0xD3);//set display offset
+	OLED_Write_CMD(0x00);// 0x20
+	OLED_Write_CMD(0xD5);//set osc division
+	OLED_Write_CMD(0x80);
+	OLED_Write_CMD(0xD9);//set pre-charge period
+	OLED_Write_CMD(0x22);//默认0x22
+	OLED_Write_CMD(0xDA);//set COM pins
+	OLED_Write_CMD(0x12);
+	OLED_Write_CMD(0xdb);//set vcomh
+	OLED_Write_CMD(0x35);//0x00 - 0x40，默认0x35				//影响亮度：越高越亮
 
-	OLED_Write_CMD(0xC0);
+	OLED_Write_CMD(0xC0); // 设置显示方向
 	OLED_Write_CMD(0xA0);
-
-	OLED_Write_CMD(0xdc); // Set Display Start Line
-	OLED_Write_CMD(0x00);
-	OLED_Write_CMD(0xd3); // Set Display Offset
-	OLED_Write_CMD(0x00);
-	OLED_Write_CMD(0xd9); // Set Discharge / Pre-Charge Period
-	OLED_Write_CMD(0x22);
-	OLED_Write_CMD(0xdb); // Set Vcomh voltage
-	OLED_Write_CMD(0x35);
-	
-	OLED_Write_CMD(0xa8); // Set Multiplex Ration
-	OLED_Write_CMD(0x7f);
-	
-	OLED_Write_CMD(0xa4); // Set Entire Display OFF/ON
-	OLED_Write_CMD(0xa6); // Set Normal/Reverse Display
 
 	OLED_Clear();
 	OLED_Update();
