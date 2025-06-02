@@ -704,7 +704,11 @@ void OLED_ShowCharArea(int16_t RangeX, int16_t RangeY, int16_t RangeWidth, int16
             font_data = OLED_F10x20[Char - ' '];
             break;
 		#endif
-			
+
+        default:
+			// 不支持的字体大小
+        	font_data = NULL;
+			return;
     }
 
     OLED_ShowImageArea(RangeX, RangeY, RangeWidth, RangeHeight, X, Y, width, height, font_data);
@@ -1271,7 +1275,7 @@ void OLED_DrawCircle(int16_t X, int16_t Y, int16_t Radius, uint8_t IsFilled)
  * @brief 画椭圆
  * @param X 圆心的横坐标
  * @param Y 圆心的纵坐标
- * @param A 椭圆的横向半轴长度	
+ * @param A 椭圆的横向半轴长度
  * @param B 椭圆的纵向半轴长度
  * @param IsFilled 是否填充
  * @return 无
